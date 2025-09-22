@@ -1,0 +1,104 @@
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Download, Info, Star, Calendar } from "lucide-react";
+import StatusBadge, { type GameStatus } from "./StatusBadge";
+
+export interface Game {
+  id: string;
+  title: string;
+  coverUrl: string;
+  releaseDate: string;
+  rating: number;
+  platform: string[];
+  status: GameStatus;
+  genre: string[];
+}
+
+interface GameCardProps {
+  game: Game;
+  onStatusChange?: (gameId: string, newStatus: GameStatus) => void;
+  onViewDetails?: (gameId: string) => void;
+}
+
+export default function GameCard({ game, onStatusChange, onViewDetails }: GameCardProps) {
+  const handleStatusClick = () => {
+    console.log(`Status change triggered for game: ${game.title}`);
+    const nextStatus: GameStatus = game.status === "wanted" ? "owned" : 
+                                   game.status === "owned" ? "completed" : "wanted";
+    onStatusChange?.(game.id, nextStatus);
+  };
+
+  const handleDetailsClick = () => {
+    console.log(`View details triggered for game: ${game.title}`);
+    onViewDetails?.(game.id);
+  };
+
+  const handleDownloadClick = () => {
+    console.log(`Download triggered for game: ${game.title}`);
+  };
+
+  return (
+    <Card className="group hover-elevate transition-all duration-200" data-testid={`card-game-${game.id}`}>
+      <div className="relative">
+        <img 
+          src={game.coverUrl} 
+          alt={`${game.title} cover`}
+          className="w-full aspect-[3/4] object-cover rounded-t-md"
+          data-testid={`img-cover-${game.id}`}
+        />
+        <div className="absolute top-2 right-2">
+          <StatusBadge status={game.status} />
+        </div>
+        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-t-md flex items-center justify-center gap-2">
+          <Button 
+            size="icon" 
+            variant="secondary"
+            onClick={handleDetailsClick}
+            data-testid={`button-details-${game.id}`}
+          >
+            <Info className="w-4 h-4" />
+          </Button>
+          <Button 
+            size="icon" 
+            variant="secondary"
+            onClick={handleDownloadClick}
+            data-testid={`button-download-${game.id}`}
+          >
+            <Download className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+      <CardContent className="p-4">
+        <h3 className="font-semibold text-sm mb-2 line-clamp-2" data-testid={`text-title-${game.id}`}>
+          {game.title}
+        </h3>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+          <Star className="w-3 h-3 text-accent" />
+          <span data-testid={`text-rating-${game.id}`}>{game.rating}/10</span>
+          <Calendar className="w-3 h-3 ml-2" />
+          <span data-testid={`text-release-${game.id}`}>{game.releaseDate}</span>
+        </div>
+        <div className="flex flex-wrap gap-1 mb-3">
+          {game.genre.slice(0, 2).map((genre) => (
+            <span 
+              key={genre} 
+              className="text-xs bg-muted px-2 py-1 rounded-sm"
+              data-testid={`tag-genre-${genre.toLowerCase()}`}
+            >
+              {genre}
+            </span>
+          ))}
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full" 
+          onClick={handleStatusClick}
+          data-testid={`button-status-${game.id}`}
+        >
+          Mark as {game.status === "wanted" ? "Owned" : game.status === "owned" ? "Completed" : "Wanted"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
