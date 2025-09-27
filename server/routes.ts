@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { igdbClient } from "./igdb";
 import { insertGameSchema, updateGameStatusSchema, insertIndexerSchema, insertDownloaderSchema } from "@shared/schema";
+import { torznabClient } from "./torznab";
+import { DownloaderManager } from "./downloaders";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -505,6 +507,241 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error searching specific indexer:", error);
       res.status(500).json({ error: "Failed to search indexer" });
+    }
+  });
+
+  // Downloader integration routes
+  
+  // Test downloader connection
+  app.post("/api/downloaders/:id/test", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const downloader = await storage.getDownloader(id);
+      
+      if (!downloader) {
+        return res.status(404).json({ error: "Downloader not found" });
+      }
+
+      const result = await DownloaderManager.testDownloader(downloader);
+      res.json(result);
+    } catch (error) {
+      console.error("Error testing downloader:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to test downloader connection" 
+      });
+    }
+  });
+
+  // Add torrent to downloader
+  app.post("/api/downloaders/:id/torrents", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { url, title, category, downloadPath, priority } = req.body;
+      
+      if (!url || !title) {
+        return res.status(400).json({ error: "URL and title are required" });
+      }
+
+      const downloader = await storage.getDownloader(id);
+      if (!downloader) {
+        return res.status(404).json({ error: "Downloader not found" });
+      }
+
+      if (!downloader.enabled) {
+        return res.status(400).json({ error: "Downloader is disabled" });
+      }
+
+      const result = await DownloaderManager.addTorrent(downloader, {
+        url,
+        title,
+        category,
+        downloadPath,
+        priority,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error adding torrent:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to add torrent" 
+      });
+    }
+  });
+
+  // Get all torrents from a downloader
+  app.get("/api/downloaders/:id/torrents", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const downloader = await storage.getDownloader(id);
+      
+      if (!downloader) {
+        return res.status(404).json({ error: "Downloader not found" });
+      }
+
+      const torrents = await DownloaderManager.getAllTorrents(downloader);
+      res.json(torrents);
+    } catch (error) {
+      console.error("Error getting torrents:", error);
+      res.status(500).json({ error: "Failed to get torrents" });
+    }
+  });
+
+  // Get specific torrent status
+  app.get("/api/downloaders/:id/torrents/:torrentId", async (req, res) => {
+    try {
+      const { id, torrentId } = req.params;
+      const downloader = await storage.getDownloader(id);
+      
+      if (!downloader) {
+        return res.status(404).json({ error: "Downloader not found" });
+      }
+
+      const torrent = await DownloaderManager.getTorrentStatus(downloader, torrentId);
+      if (!torrent) {
+        return res.status(404).json({ error: "Torrent not found" });
+      }
+
+      res.json(torrent);
+    } catch (error) {
+      console.error("Error getting torrent status:", error);
+      res.status(500).json({ error: "Failed to get torrent status" });
+    }
+  });
+
+  // Pause torrent
+  app.post("/api/downloaders/:id/torrents/:torrentId/pause", async (req, res) => {
+    try {
+      const { id, torrentId } = req.params;
+      const downloader = await storage.getDownloader(id);
+      
+      if (!downloader) {
+        return res.status(404).json({ error: "Downloader not found" });
+      }
+
+      const result = await DownloaderManager.pauseTorrent(downloader, torrentId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error pausing torrent:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to pause torrent" 
+      });
+    }
+  });
+
+  // Resume torrent
+  app.post("/api/downloaders/:id/torrents/:torrentId/resume", async (req, res) => {
+    try {
+      const { id, torrentId } = req.params;
+      const downloader = await storage.getDownloader(id);
+      
+      if (!downloader) {
+        return res.status(404).json({ error: "Downloader not found" });
+      }
+
+      const result = await DownloaderManager.resumeTorrent(downloader, torrentId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error resuming torrent:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to resume torrent" 
+      });
+    }
+  });
+
+  // Remove torrent
+  app.delete("/api/downloaders/:id/torrents/:torrentId", async (req, res) => {
+    try {
+      const { id, torrentId } = req.params;
+      const { deleteFiles = false } = req.query;
+      
+      const downloader = await storage.getDownloader(id);
+      if (!downloader) {
+        return res.status(404).json({ error: "Downloader not found" });
+      }
+
+      const result = await DownloaderManager.removeTorrent(
+        downloader, 
+        torrentId, 
+        deleteFiles === 'true'
+      );
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error removing torrent:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to remove torrent" 
+      });
+    }
+  });
+
+  // Get aggregated torrents from all enabled downloaders
+  app.get("/api/downloads", async (req, res) => {
+    try {
+      const enabledDownloaders = await storage.getEnabledDownloaders();
+      const allTorrents = [];
+
+      for (const downloader of enabledDownloaders) {
+        try {
+          const torrents = await DownloaderManager.getAllTorrents(downloader);
+          const torrentsWithDownloader = torrents.map(torrent => ({
+            ...torrent,
+            downloaderId: downloader.id,
+            downloaderName: downloader.name,
+          }));
+          allTorrents.push(...torrentsWithDownloader);
+        } catch (error) {
+          console.error(`Error getting torrents from ${downloader.name}:`, error);
+        }
+      }
+
+      res.json(allTorrents);
+    } catch (error) {
+      console.error("Error getting all downloads:", error);
+      res.status(500).json({ error: "Failed to get downloads" });
+    }
+  });
+
+  // Add torrent to best available downloader
+  app.post("/api/downloads", async (req, res) => {
+    try {
+      const { url, title, category, downloadPath, priority } = req.body;
+      
+      if (!url || !title) {
+        return res.status(400).json({ error: "URL and title are required" });
+      }
+
+      const enabledDownloaders = await storage.getEnabledDownloaders();
+      if (enabledDownloaders.length === 0) {
+        return res.status(400).json({ error: "No downloaders configured" });
+      }
+
+      // Use the first enabled downloader (highest priority)
+      const downloader = enabledDownloaders[0];
+
+      const result = await DownloaderManager.addTorrent(downloader, {
+        url,
+        title,
+        category,
+        downloadPath,
+        priority,
+      });
+
+      res.json({
+        ...result,
+        downloaderId: downloader.id,
+        downloaderName: downloader.name,
+      });
+    } catch (error) {
+      console.error("Error adding download:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to add download" 
+      });
     }
   });
 
