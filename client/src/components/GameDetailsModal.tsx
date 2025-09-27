@@ -143,37 +143,27 @@ export default function GameDetailsModal({
               </div>
 
               {/* Extended Metadata */}
-              <div className="grid md:grid-cols-2 gap-6">
-                {game.developer && (
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-1">Developer</h4>
-                    <p className="text-sm" data-testid={`text-developer-${game.id}`}>{game.developer}</p>
-                  </div>
-                )}
-                {game.publisher && (
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-1">Publisher</h4>
-                    <p className="text-sm" data-testid={`text-publisher-${game.id}`}>{game.publisher}</p>
-                  </div>
-                )}
-                {game.releaseDate && (
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-1">Release Date</h4>
-                    <p className="text-sm" data-testid={`text-full-release-date-${game.id}`}>
-                      {new Date(game.releaseDate).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
-                {game.rating && (
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-1">Rating</h4>
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 text-accent fill-current" />
-                      <span className="text-sm font-medium">{game.rating}/10</span>
+              {(game.releaseDate || game.rating) && (
+                <div className="grid md:grid-cols-2 gap-6">
+                  {game.releaseDate && (
+                    <div>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-1">Release Date</h4>
+                      <p className="text-sm" data-testid={`text-full-release-date-${game.id}`}>
+                        {new Date(game.releaseDate).toLocaleDateString()}
+                      </p>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                  {game.rating && (
+                    <div>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-1">Rating</h4>
+                      <div className="flex items-center gap-1">
+                        <Star className="w-4 h-4 text-accent fill-current" />
+                        <span className="text-sm font-medium">{game.rating}/10</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Genres and Platforms */}
               <div className="grid md:grid-cols-2 gap-6">
@@ -231,31 +221,6 @@ export default function GameDetailsModal({
                         </CardContent>
                       </Card>
                     ))}
-                  </div>
-                </div>
-              )}
-
-              {/* External Links */}
-              {(game.storeUrl || game.officialWebsite) && (
-                <div>
-                  <h3 className="font-semibold mb-3">External Links</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {game.storeUrl && (
-                      <Button variant="outline" size="sm" asChild data-testid="button-store-link">
-                        <a href={game.storeUrl} target="_blank" rel="noopener noreferrer" className="gap-2">
-                          <Monitor className="w-4 h-4" />
-                          View in Store
-                        </a>
-                      </Button>
-                    )}
-                    {game.officialWebsite && (
-                      <Button variant="outline" size="sm" asChild data-testid="button-website-link">
-                        <a href={game.officialWebsite} target="_blank" rel="noopener noreferrer" className="gap-2">
-                          <Monitor className="w-4 h-4" />
-                          Official Website
-                        </a>
-                      </Button>
-                    )}
                   </div>
                 </div>
               )}
