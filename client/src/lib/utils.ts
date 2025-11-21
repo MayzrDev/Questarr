@@ -14,11 +14,14 @@ export function cn(...inputs: ClassValue[]) {
  * - id: Generated server-side
  * - isReleased: Client-only field for Discovery games
  * - inCollection: Client-only field for search results
+ * - releaseYear: Client-only field for Discovery games
  * - addedAt: Generated server-side
  * - completedAt: Generated server-side
  */
 export function mapGameToInsertGame(game: Game): InsertGame {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { id, isReleased, addedAt, completedAt, ...insertData } = game;
+  const { id, isReleased, addedAt, completedAt, releaseYear, ...rest } = game;
+  // Remove inCollection if it exists (it's not in the Game type but may be added by client code)
+  const { inCollection, ...insertData } = rest as typeof rest & { inCollection?: boolean };
   return insertData as InsertGame;
 }
