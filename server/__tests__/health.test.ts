@@ -23,16 +23,43 @@ vi.mock("../igdb.js", () => ({
   },
 }));
 
+// Helper function to perform health checks (matches the endpoint implementation)
+async function performHealthCheck() {
+  const { pool } = await import("../db.js");
+  const { igdbClient } = await import("../igdb.js");
+
+  const health = {
+    ok: true,
+    db: false,
+    igdb: false,
+  };
+
+  // Check database connectivity
+  try {
+    await pool.query("SELECT 1");
+    health.db = true;
+  } catch (error) {
+    health.ok = false;
+  }
+
+  // Check IGDB API connectivity
+  try {
+    await igdbClient.getPopularGames(1);
+    health.igdb = true;
+  } catch (error) {
+    health.ok = false;
+  }
+
+  return health;
+}
+
 describe("Health Endpoint Logic", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("should return ok: true when both db and igdb are healthy", async () => {
-    // Mock successful database query
     poolQueryMock.mockResolvedValueOnce({ rows: [{ "?column?": 1 }] });
-
-    // Mock successful IGDB API call
     igdbGetPopularGamesMock.mockResolvedValueOnce([
       {
         id: 1,
@@ -40,30 +67,7 @@ describe("Health Endpoint Logic", () => {
       },
     ]);
 
-    const { pool } = await import("../db.js");
-    const { igdbClient } = await import("../igdb.js");
-
-    const health = {
-      ok: true,
-      db: false,
-      igdb: false,
-    };
-
-    // Check database connectivity
-    try {
-      await pool.query("SELECT 1");
-      health.db = true;
-    } catch (error) {
-      health.ok = false;
-    }
-
-    // Check IGDB API connectivity
-    try {
-      await igdbClient.getPopularGames(1);
-      health.igdb = true;
-    } catch (error) {
-      health.ok = false;
-    }
+    const health = await performHealthCheck();
 
     expect(health).toEqual({
       ok: true,
@@ -73,10 +77,7 @@ describe("Health Endpoint Logic", () => {
   });
 
   it("should return ok: false when database is down", async () => {
-    // Mock database query failure
     poolQueryMock.mockRejectedValueOnce(new Error("Database connection failed"));
-
-    // Mock successful IGDB API call
     igdbGetPopularGamesMock.mockResolvedValueOnce([
       {
         id: 1,
@@ -84,30 +85,7 @@ describe("Health Endpoint Logic", () => {
       },
     ]);
 
-    const { pool } = await import("../db.js");
-    const { igdbClient } = await import("../igdb.js");
-
-    const health = {
-      ok: true,
-      db: false,
-      igdb: false,
-    };
-
-    // Check database connectivity
-    try {
-      await pool.query("SELECT 1");
-      health.db = true;
-    } catch (error) {
-      health.ok = false;
-    }
-
-    // Check IGDB API connectivity
-    try {
-      await igdbClient.getPopularGames(1);
-      health.igdb = true;
-    } catch (error) {
-      health.ok = false;
-    }
+    const health = await performHealthCheck();
 
     expect(health).toEqual({
       ok: false,
@@ -117,36 +95,10 @@ describe("Health Endpoint Logic", () => {
   });
 
   it("should return ok: false when IGDB API is down", async () => {
-    // Mock successful database query
     poolQueryMock.mockResolvedValueOnce({ rows: [{ "?column?": 1 }] });
-
-    // Mock IGDB API failure
     igdbGetPopularGamesMock.mockRejectedValueOnce(new Error("IGDB API error"));
 
-    const { pool } = await import("../db.js");
-    const { igdbClient } = await import("../igdb.js");
-
-    const health = {
-      ok: true,
-      db: false,
-      igdb: false,
-    };
-
-    // Check database connectivity
-    try {
-      await pool.query("SELECT 1");
-      health.db = true;
-    } catch (error) {
-      health.ok = false;
-    }
-
-    // Check IGDB API connectivity
-    try {
-      await igdbClient.getPopularGames(1);
-      health.igdb = true;
-    } catch (error) {
-      health.ok = false;
-    }
+    const health = await performHealthCheck();
 
     expect(health).toEqual({
       ok: false,
@@ -156,36 +108,10 @@ describe("Health Endpoint Logic", () => {
   });
 
   it("should return ok: false when both services are down", async () => {
-    // Mock database query failure
     poolQueryMock.mockRejectedValueOnce(new Error("Database connection failed"));
-
-    // Mock IGDB API failure
     igdbGetPopularGamesMock.mockRejectedValueOnce(new Error("IGDB API error"));
 
-    const { pool } = await import("../db.js");
-    const { igdbClient } = await import("../igdb.js");
-
-    const health = {
-      ok: true,
-      db: false,
-      igdb: false,
-    };
-
-    // Check database connectivity
-    try {
-      await pool.query("SELECT 1");
-      health.db = true;
-    } catch (error) {
-      health.ok = false;
-    }
-
-    // Check IGDB API connectivity
-    try {
-      await igdbClient.getPopularGames(1);
-      health.igdb = true;
-    } catch (error) {
-      health.ok = false;
-    }
+    const health = await performHealthCheck();
 
     expect(health).toEqual({
       ok: false,
