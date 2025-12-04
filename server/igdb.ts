@@ -333,6 +333,78 @@ class IGDBClient {
     }
   }
 
+  async getGamesByGenre(genre: string, limit: number = 20, offset: number = 0): Promise<IGDBGame[]> {
+    // Sanitize and escape the genre name for IGDB query
+    const cleanGenre = genre.replace(/[()]/g, '').replace(/\s+/g, ' ').trim();
+    
+    const igdbQuery = `
+      fields name, summary, cover.url, first_release_date, rating, platforms.name, genres.name, screenshots.url;
+      where genres.name ~ *"${cleanGenre}"* & rating > 60 & rating_count > 3;
+      sort rating desc;
+      limit ${limit};
+      offset ${offset};
+    `;
+
+    try {
+      return await this.makeRequest('games', igdbQuery);
+    } catch (error) {
+      console.warn(`IGDB genre search failed for genre: ${genre}`, error);
+      return [];
+    }
+  }
+
+  async getGamesByPlatform(platform: string, limit: number = 20, offset: number = 0): Promise<IGDBGame[]> {
+    // Sanitize the platform name for IGDB query
+    const cleanPlatform = platform.replace(/[()]/g, '').replace(/\s+/g, ' ').trim();
+    
+    const igdbQuery = `
+      fields name, summary, cover.url, first_release_date, rating, platforms.name, genres.name, screenshots.url;
+      where platforms.name ~ *"${cleanPlatform}"* & rating > 60 & rating_count > 3;
+      sort rating desc;
+      limit ${limit};
+      offset ${offset};
+    `;
+
+    try {
+      return await this.makeRequest('games', igdbQuery);
+    } catch (error) {
+      console.warn(`IGDB platform search failed for platform: ${platform}`, error);
+      return [];
+    }
+  }
+
+  async getGenres(): Promise<Array<{ id: number; name: string }>> {
+    const igdbQuery = `
+      fields id, name;
+      sort name asc;
+      limit 50;
+    `;
+
+    try {
+      return await this.makeRequest('genres', igdbQuery);
+    } catch (error) {
+      console.warn('IGDB genres fetch failed:', error);
+      return [];
+    }
+  }
+
+  async getPlatforms(): Promise<Array<{ id: number; name: string }>> {
+    // Only get major gaming platforms
+    const igdbQuery = `
+      fields id, name;
+      where category = (1, 5, 6);
+      sort name asc;
+      limit 50;
+    `;
+
+    try {
+      return await this.makeRequest('platforms', igdbQuery);
+    } catch (error) {
+      console.warn('IGDB platforms fetch failed:', error);
+      return [];
+    }
+  }
+
   formatGameData(igdbGame: IGDBGame): any {
     const releaseDate = igdbGame.first_release_date 
       ? new Date(igdbGame.first_release_date * 1000)

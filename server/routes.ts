@@ -302,6 +302,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get games by genre
+  app.get("/api/igdb/genre/:genre", igdbRateLimiter, async (req, res) => {
+    try {
+      const { genre } = req.params;
+      const { limit, offset } = req.query;
+      const limitNum = limit ? parseInt(limit as string) : 20;
+      const offsetNum = offset ? parseInt(offset as string) : 0;
+      
+      const igdbGames = await igdbClient.getGamesByGenre(genre, limitNum, offsetNum);
+      const formattedGames = igdbGames.map(game => igdbClient.formatGameData(game));
+      
+      res.json(formattedGames);
+    } catch (error) {
+      console.error("Error fetching games by genre:", error);
+      res.status(500).json({ error: "Failed to fetch games by genre" });
+    }
+  });
+
+  // Get games by platform
+  app.get("/api/igdb/platform/:platform", igdbRateLimiter, async (req, res) => {
+    try {
+      const { platform } = req.params;
+      const { limit, offset } = req.query;
+      const limitNum = limit ? parseInt(limit as string) : 20;
+      const offsetNum = offset ? parseInt(offset as string) : 0;
+      
+      const igdbGames = await igdbClient.getGamesByPlatform(platform, limitNum, offsetNum);
+      const formattedGames = igdbGames.map(game => igdbClient.formatGameData(game));
+      
+      res.json(formattedGames);
+    } catch (error) {
+      console.error("Error fetching games by platform:", error);
+      res.status(500).json({ error: "Failed to fetch games by platform" });
+    }
+  });
+
+  // Get available genres (for UI dropdowns/filters)
+  app.get("/api/igdb/genres", igdbRateLimiter, async (req, res) => {
+    try {
+      const genres = await igdbClient.getGenres();
+      res.json(genres);
+    } catch (error) {
+      console.error("Error fetching genres:", error);
+      res.status(500).json({ error: "Failed to fetch genres" });
+    }
+  });
+
+  // Get available platforms (for UI dropdowns/filters)
+  app.get("/api/igdb/platforms", igdbRateLimiter, async (req, res) => {
+    try {
+      const platforms = await igdbClient.getPlatforms();
+      res.json(platforms);
+    } catch (error) {
+      console.error("Error fetching platforms:", error);
+      res.status(500).json({ error: "Failed to fetch platforms" });
+    }
+  });
+
   // Get game details by IGDB ID
   app.get("/api/igdb/game/:id", igdbRateLimiter, sanitizeIgdbId, validateRequest, async (req: Request, res: Response) => {
     try {
