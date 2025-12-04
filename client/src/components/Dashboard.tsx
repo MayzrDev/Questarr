@@ -139,8 +139,8 @@ export default function Dashboard({}: DashboardProps) {
   });
 
   // Calculate unique genres and platforms from user's game collection
-  const uniqueGenres = new Set(games.flatMap((g) => g.genres || []));
-  const uniquePlatforms = new Set(games.flatMap((g) => g.platforms || []));
+  const uniqueGenres = new Set(games.flatMap((g) => g.genres ?? []));
+  const uniquePlatforms = new Set(games.flatMap((g) => g.platforms ?? []));
 
   const stats = [
     {
