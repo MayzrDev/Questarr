@@ -8,9 +8,9 @@ export const logger = pino({
   transport: isProduction
     ? undefined
     : {
-        target: "pino/file",
+        target: "pino-pretty",
         options: {
-          destination: 1, // stdout
+          colorize: true,
         },
       },
   formatters: {
