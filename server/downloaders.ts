@@ -696,6 +696,10 @@ class RTorrentClient implements DownloaderClient {
 class QBittorrentClient implements DownloaderClient {
   private downloader: Downloader;
   private cookie: string | null = null;
+  
+  // Maximum ETA value to consider valid (100 days in seconds)
+  // qBittorrent returns very large values when ETA is essentially infinite
+  private static readonly MAX_VALID_ETA_SECONDS = 8640000;
 
   constructor(downloader: Downloader) {
     this.downloader = downloader;
@@ -796,16 +800,21 @@ class QBittorrentClient implements DownloaderClient {
   }
 
   async getAllTorrents(): Promise<DownloadStatus[]> {
-    await this.authenticate();
-    
-    const response = await this.makeRequest('GET', '/api/v2/torrents/info');
-    const torrents = await response.json() as any[];
-    
-    if (torrents) {
-      return torrents.map((torrent: any) => this.mapQBittorrentStatus(torrent));
+    try {
+      await this.authenticate();
+      
+      const response = await this.makeRequest('GET', '/api/v2/torrents/info');
+      const torrents = await response.json() as any[];
+      
+      if (torrents) {
+        return torrents.map((torrent: any) => this.mapQBittorrentStatus(torrent));
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error getting all torrents:', error);
+      return [];
     }
-    
-    return [];
   }
 
   async pauseTorrent(id: string): Promise<{ success: boolean; message: string }> {
@@ -915,7 +924,7 @@ class QBittorrentClient implements DownloaderClient {
       progress: Math.round(torrent.progress * 100),
       downloadSpeed: torrent.dlspeed,
       uploadSpeed: torrent.upspeed,
-      eta: torrent.eta > 0 && torrent.eta < 8640000 ? torrent.eta : undefined,
+      eta: torrent.eta > 0 && torrent.eta < QBittorrentClient.MAX_VALID_ETA_SECONDS ? torrent.eta : undefined,
       size: torrent.size,
       downloaded: torrent.downloaded,
       seeders: torrent.num_seeds,
@@ -1021,7 +1030,7 @@ class QBittorrentClient implements DownloaderClient {
       });
     }
 
-    if (!response.ok && response.status !== 200) {
+    if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
