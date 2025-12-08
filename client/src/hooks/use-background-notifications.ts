@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 
@@ -34,7 +34,7 @@ export function useBackgroundNotifications() {
     retry: false, // Don't retry on error to avoid spam
   });
 
-  const downloads = downloadsData?.torrents || [];
+  const downloads = useMemo(() => downloadsData?.torrents || [], [downloadsData?.torrents]);
 
   useEffect(() => {
     if (downloads.length === 0) {
