@@ -166,9 +166,6 @@ export type InsertDownloader = {
 
 // Application configuration type
 export interface Config {
-  database: {
-    connected: boolean;
-  };
   igdb: {
     configured: boolean;
   };

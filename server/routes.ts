@@ -999,9 +999,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Only expose boolean flags indicating if services are configured, not
       // sensitive details like database URLs or partial API keys.
       const config: Config = {
-        database: {
-          connected: !!appConfig.database.url,
-        },
         igdb: {
           configured: appConfig.igdb.isConfigured,
         },
