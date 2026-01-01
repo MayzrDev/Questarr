@@ -147,13 +147,13 @@ export default function GameDownloadDialog({ game, open, onOpenChange }: GameDow
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Download {game.title}</DialogTitle>
           <DialogDescription>Search results for torrents matching this game</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 mt-4">
+        <ScrollArea className="flex-1 mt-4 overflow-y-auto">
           <div className="space-y-4 pr-4">
             {isSearching && (
               <div className="flex items-center justify-center py-8">
