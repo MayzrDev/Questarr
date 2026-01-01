@@ -20,10 +20,12 @@
 
 ### Task 1.2 – Fix rTorrent Authentication Implementation - Agent_Backend_Downloaders
 **Objective:** Correct rTorrent authentication implementation based on investigation findings.
-**Output:** Updated server/downloaders.ts with working rTorrent authentication.
+**Output:** Updated server/downloaders.ts with working rTorrent authentication (Basic + Digest).
+**Status:** Completed
 **Guidance:** **Depends on: Task 1.1 output**. Apply identified corrections to auth mechanism. Ensure proper error handling and logging with Pino. Follow TypeScript strict mode and existing code patterns.
 
 - Apply identified fixes to rTorrent authentication in `server/downloaders.ts` (headers, endpoint, credential format)
+- Implement Digest Authentication support for rTorrent/ruTorrent
 - Ensure proper error handling for auth failures with clear logging using Pino
 - Follow existing code patterns and TypeScript strict mode conventions
 - Write unit tests for rTorrent auth logic to prevent future regressions
@@ -31,6 +33,7 @@
 ### Task 1.3 – Validate Download Workflow End-to-End - Agent_Backend_Downloaders
 **Objective:** Confirm complete download workflow functions with corrected rTorrent authentication.
 **Output:** Documented successful test results showing working nominal scenario.
+**Status:** Completed
 **Guidance:** **Depends on: Task 1.2 output**. Test complete flow: search game → select torrent → download → verify in rTorrent client. User performs manual UI testing while Agent monitors logs.
 
 1. Start development server and confirm rTorrent downloader is configured and accessible
