@@ -61,7 +61,7 @@ const renderComponent = () => {
 describe("GameDownloadDialog", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    queryClient.setQueryData(["/api/search", "Test Game"], mockTorrents);
+    queryClient.setQueryData(["/api/search?query=Test%20Game"], mockTorrents);
 
     // Mock successful search query
     global.fetch = vi.fn((url) => {
