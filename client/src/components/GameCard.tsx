@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Info, Star, Calendar } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 import StatusBadge, { type GameStatus } from "./StatusBadge";
 import { type Game } from "@shared/schema";
 import { useState, memo } from "react";
@@ -17,6 +18,28 @@ interface GameCardProps {
   isDiscovery?: boolean;
 }
 
+function getReleaseStatus(releaseDate: string | null): { 
+  label: string; 
+  variant: "default" | "secondary" | "outline" | "destructive";
+  isReleased: boolean;
+  className?: string;
+} {
+  if (!releaseDate) return { label: "TBA", variant: "secondary", isReleased: false };
+  
+  const now = new Date();
+  const release = new Date(releaseDate);
+  
+  if (release > now) {
+    return { label: "Upcoming", variant: "default", isReleased: false };
+  }
+  return { 
+    label: "Released", 
+    variant: "outline", 
+    isReleased: true,
+    className: "bg-green-500 border-green-600 text-white"
+  };
+}
+
 // ⚡ Bolt: Using React.memo to prevent unnecessary re-renders of the GameCard
 // when parent components update but this card's props remain unchanged.
 // This is particularly effective in grids or lists where many cards are rendered.
@@ -29,6 +52,7 @@ const GameCard = ({
 }: GameCardProps) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
+  const releaseStatus = getReleaseStatus(game.releaseDate);
 
   const handleStatusClick = () => {
     console.warn(`Status change triggered for game: ${game.title}`);
@@ -63,18 +87,16 @@ const GameCard = ({
           loading="lazy"
           data-testid={`img-cover-${game.id}`}
         />
-        {!isDiscovery && game.status && (
-          <div className="absolute top-2 right-2">
+        <div className="absolute top-2 right-2 flex flex-col gap-1">
+          {!isDiscovery && game.status && (
             <StatusBadge status={game.status} />
-          </div>
-        )}
-        {isDiscovery && (
-          <div className="absolute top-2 right-2">
-            <div className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium">
-              {game.isReleased ? "Released" : "Upcoming"}
-            </div>
-          </div>
-        )}
+          )}
+          {game.status === "wanted" && (
+            <Badge variant={releaseStatus.variant} className={`text-xs ${releaseStatus.className || ""}`}>
+              {releaseStatus.label}
+            </Badge>
+          )}
+        </div>
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-t-md flex items-center justify-center gap-2">
           {isDiscovery && (
             <Tooltip>
