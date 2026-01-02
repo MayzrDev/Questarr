@@ -95,9 +95,9 @@ function App() {
         <AuthProvider>
           <TooltipProvider>
             <SidebarProvider style={style as React.CSSProperties}>
-              <div className="flex h-screen w-full">
+              <div className="flex h-screen w-full overflow-hidden">
                 <AppSidebar activeItem={location} onNavigate={navigate} />
-                <div className="flex flex-col flex-1">
+                <div className="flex flex-col flex-1 min-w-0">
                   <Header title={getPageTitle(location)} />
                   <main className="flex-1 overflow-hidden">
                     <AppContent />

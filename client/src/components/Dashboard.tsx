@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import SearchBar from "./SearchBar";
 import GameGrid from "./GameGrid";
 import StatsCard from "./StatsCard";
-import { Library, Star, Gamepad2, Tags, Filter, X, LayoutGrid } from "lucide-react";
+import { Library, Star, Gamepad2, Tags, Filter, X, LayoutGrid, Calendar } from "lucide-react";
 import { type Game } from "@shared/schema";
 import { type GameStatus } from "./StatusBadge";
 import { useToast } from "@/hooks/use-toast";
@@ -139,32 +139,90 @@ export default function Dashboard() {
     return filters;
   }, [statusFilter, genreFilter, platformFilter]);
 
-  const stats = [
-    {
-      title: "Total Games",
-      value: games.length,
-      subtitle: "in your library",
-      icon: Library,
-    },
-    {
-      title: "Genres",
-      value: uniqueGenres.length,
-      subtitle: "unique genres",
-      icon: Tags,
-    },
-    {
-      title: "Platforms",
-      value: uniquePlatforms.length,
-      subtitle: "unique platforms",
-      icon: Gamepad2,
-    },
-    {
-      title: "Wishlist",
-      value: games.filter((g) => g.status === "wanted").length,
-      subtitle: "wanted games",
-      icon: Star,
-    },
-  ];
+  // Calculate statistics
+  const stats = useMemo(() => {
+    const totalGames = games.length;
+    if (totalGames === 0) return [];
+
+    // Avg Rating
+    const ratedGames = games.filter(g => g.rating !== null);
+    const avgRating = ratedGames.length > 0 
+      ? (ratedGames.reduce((acc, g) => acc + (g.rating || 0), 0) / ratedGames.length).toFixed(1)
+      : "N/A";
+
+    // Top Genre
+    const genreCounts: Record<string, number> = {};
+    games.flatMap(g => g.genres || []).forEach(g => genreCounts[g] = (genreCounts[g] || 0) + 1);
+    const topGenre = Object.entries(genreCounts).sort((a, b) => b[1] - a[1])[0];
+
+    // Top Platform
+    const platformCounts: Record<string, number> = {};
+    games.flatMap(g => g.platforms || []).forEach(p => platformCounts[p] = (platformCounts[p] || 0) + 1);
+    const topPlatform = Object.entries(platformCounts).sort((a, b) => b[1] - a[1])[0];
+
+    // Avg Release Year
+    const datedGames = games.filter(g => g.releaseDate);
+    const avgYear = datedGames.length > 0
+      ? Math.round(datedGames.reduce((acc, g) => acc + new Date(g.releaseDate!).getFullYear(), 0) / datedGames.length)
+      : "N/A";
+
+    // Top Publisher
+    const publisherCounts: Record<string, number> = {};
+    games.flatMap(g => g.publishers || []).forEach(p => publisherCounts[p] = (publisherCounts[p] || 0) + 1);
+    const topPublisher = Object.entries(publisherCounts).sort((a, b) => b[1] - a[1])[0];
+
+    // Developer Count
+    const uniqueDevelopers = new Set(games.flatMap(g => g.developers || []));
+
+    // Metadata Completeness (simple check: title, summary, cover, releaseDate, rating)
+    const completeGames = games.filter(g => g.title && g.summary && g.coverUrl && g.releaseDate && g.rating);
+    const metadataCompleteness = Math.round((completeGames.length / totalGames) * 100);
+
+    return [
+      {
+        title: "Avg. Rating",
+        value: avgRating,
+        subtitle: "average rating",
+        icon: Star,
+      },
+      {
+        title: "Top Genre",
+        value: topGenre ? topGenre[0] : "N/A",
+        subtitle: topGenre ? `${topGenre[1]} games` : "no genres",
+        icon: Tags,
+      },
+      {
+        title: "Top Platform",
+        value: topPlatform ? topPlatform[0] : "N/A",
+        subtitle: topPlatform ? `${topPlatform[1]} games` : "no platforms",
+        icon: Gamepad2,
+      },
+      {
+        title: "Top Publisher",
+        value: topPublisher ? topPublisher[0] : "N/A",
+        subtitle: topPublisher ? `${topPublisher[1]} games` : "no publishers",
+        icon: Library,
+      },
+      {
+        title: "Developers",
+        value: uniqueDevelopers.size,
+        subtitle: "unique developers",
+        icon: LayoutGrid, 
+      },
+      {
+        title: "Avg. Year",
+        value: avgYear,
+        subtitle: "release year",
+        icon: Calendar,
+      },
+      {
+        title: "Metadata Health",
+        value: `${metadataCompleteness}%`,
+        subtitle: "complete metadata",
+        icon: Filter, 
+      }
+    ];
+  }, [games]);
 
   // ⚡ Bolt: Memoize event handlers with `useCallback` to prevent unnecessary
   // re-renders in child components like `SearchBar` that depend on stable
@@ -214,7 +272,7 @@ export default function Dashboard() {
   return (
     <div className="h-full overflow-auto p-6" data-testid="layout-dashboard">
       <div className="space-y-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           {stats.map((stat) => (
             <StatsCard
               key={stat.title}

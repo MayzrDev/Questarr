@@ -140,7 +140,7 @@ const GameCarouselSection = ({
 
   return (
     <div
-      className="space-y-3 max-w-full"
+      className="space-y-3 w-full max-w-full overflow-hidden"
       data-testid={`carousel-section-${title.toLowerCase().replace(/\s+/g, "-")}`}
     >
       <div className="flex items-center justify-between">
@@ -202,7 +202,7 @@ const GameCarouselSection = ({
           </Tooltip>
         </div>
       </div>
-      <div className="relative overflow-hidden" aria-busy={isFetching && !isLoading}>
+      <div className="relative w-full overflow-hidden" aria-busy={isFetching && !isLoading}>
         {isFetching && !isLoading && (
           <div className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -214,12 +214,12 @@ const GameCarouselSection = ({
             loop: false,
           }}
           setApi={setApi}
-          className={cn("w-full transition-opacity", {
+          className={cn("w-full max-w-full transition-opacity", {
             "opacity-50": isFetching && !isLoading,
           })}
           aria-hidden={isFetching && !isLoading}
         >
-          <CarouselContent className="-ml-4">
+          <CarouselContent className="-ml-4 max-w-full">
             {games.map((game) => (
               <CarouselItem
                 key={game.id}
