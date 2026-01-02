@@ -381,7 +381,7 @@ export default function DiscoverPage() {
 
   return (
     <div className="h-full w-full overflow-x-hidden overflow-y-auto" data-testid="discover-page">
-      <div className="p-6 space-y-8">
+      <div className="p-6 space-y-8 max-w-full">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-bold mb-2">Discover Games</h1>

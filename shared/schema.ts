@@ -22,6 +22,8 @@ export const games = pgTable("games", {
   rating: real("rating"),
   platforms: text("platforms").array(),
   genres: text("genres").array(),
+  publishers: text("publishers").array(),
+  developers: text("developers").array(),
   screenshots: text("screenshots").array(),
   status: text("status", { enum: ["wanted", "owned", "completed", "downloading"] })
     .notNull()
