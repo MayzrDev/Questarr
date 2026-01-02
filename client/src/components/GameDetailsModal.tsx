@@ -13,7 +13,6 @@ import {
   Gamepad2,
   Tag,
   Download,
-  Play,
   CheckCircle,
   Eye,
   X,
@@ -162,15 +161,6 @@ export default function GameDetailsModal({
                 <h3 className="font-semibold mb-3">Quick Actions</h3>
                 <div className="flex flex-wrap gap-2">
                   <Button
-                    variant="default"
-                    size="sm"
-                    className="gap-2"
-                    data-testid="button-launch-game"
-                  >
-                    <Play className="w-4 h-4" />
-                    Launch Game
-                  </Button>
-                  <Button
                     variant="outline"
                     size="sm"
                     className="gap-2"
@@ -179,6 +169,17 @@ export default function GameDetailsModal({
                   >
                     <Download className="w-4 h-4" />
                     Download
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleRemoveGame}
+                    disabled={removeGameMutation.isPending}
+                    className="gap-2"
+                    data-testid={`button-remove-game-quick-${game.id}`}
+                  >
+                    <X className="w-4 h-4" />
+                    {removeGameMutation.isPending ? "Removing..." : "Remove"}
                   </Button>
                 </div>
               </div>
@@ -297,24 +298,6 @@ export default function GameDetailsModal({
                     </Button>
                   ))}
                 </div>
-              </div>
-
-              <Separator />
-
-              {/* Remove Game */}
-              <div>
-                <h3 className="font-semibold mb-2 text-destructive">Danger Zone</h3>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleRemoveGame}
-                  disabled={removeGameMutation.isPending}
-                  className="gap-2"
-                  data-testid={`button-remove-game-${game.id}`}
-                >
-                  <X className="w-4 h-4" />
-                  {removeGameMutation.isPending ? "Removing..." : "Remove from Collection"}
-                </Button>
               </div>
             </div>
           </ScrollArea>
