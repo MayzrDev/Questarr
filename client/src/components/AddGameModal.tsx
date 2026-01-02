@@ -100,7 +100,7 @@ export default function AddGameModal({ children }: AddGameModalProps) {
   const resultsWithCollectionStatus: SearchResult[] = searchResults.map((game: Game) => ({
     ...game,
     inCollection: userGames.some(
-      (userGame) => userGame.igdbId === game.igdbId || userGame.title === game.title
+      (userGame) => userGame.igdbId === game.igdbId
     ),
   }));
 
