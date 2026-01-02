@@ -1136,11 +1136,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/downloaders/storage", async (req, res) => {
     try {
       const enabledDownloaders = await storage.getEnabledDownloaders();
+      routesLogger.debug({ count: enabledDownloaders.length }, "fetching storage info for downloaders");
       const storageInfo = [];
 
       for (const downloader of enabledDownloaders) {
         try {
           const freeSpace = await DownloaderManager.getFreeSpace(downloader);
+          routesLogger.debug({ name: downloader.name, freeSpace }, "retrieved free space");
           storageInfo.push({
             downloaderId: downloader.id,
             downloaderName: downloader.name,

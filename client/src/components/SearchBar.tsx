@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Filter, X } from "lucide-react";
+import { Search, Filter, X, LayoutGrid } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface SearchBarProps {
   onSearch?: (query: string) => void;
   onFilterToggle?: () => void;
+  onLayoutSettingsToggle?: () => void;
   placeholder?: string;
   activeFilters?: string[];
   onRemoveFilter?: (filter: string) => void;
@@ -15,6 +16,7 @@ interface SearchBarProps {
 export default function SearchBar({
   onSearch,
   onFilterToggle,
+  onLayoutSettingsToggle,
   placeholder = "Search games...",
   activeFilters = [],
   onRemoveFilter,
@@ -89,6 +91,15 @@ export default function SearchBar({
           aria-label="Toggle filters"
         >
           <Filter className="w-4 h-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onLayoutSettingsToggle}
+          data-testid="button-layout-settings"
+          aria-label="Toggle layout settings"
+        >
+          <LayoutGrid className="w-4 h-4" />
         </Button>
       </form>
 

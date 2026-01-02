@@ -11,7 +11,6 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -19,11 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import DisplaySettingsModal from "./DisplaySettingsModal";
 
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [showFilters, setShowFilters] = useState(false);
+  const [showDisplaySettings, setShowDisplaySettings] = useState(false);
   const [statusFilter, setStatusFilter] = useState<GameStatus | "all">("all");
   const [genreFilter, setGenreFilter] = useState<string>("all");
   const [platformFilter, setPlatformFilter] = useState<string>("all");
@@ -194,6 +195,7 @@ export default function Dashboard() {
           <SearchBar
             onSearch={handleSearch}
             onFilterToggle={handleFilterToggle}
+            onLayoutSettingsToggle={() => setShowDisplaySettings(true)}
             activeFilters={activeFilters}
             onRemoveFilter={handleRemoveFilter}
             placeholder="Search your library..."
@@ -275,29 +277,16 @@ export default function Dashboard() {
                     </Select>
                   </div>
                 </div>
-
-                <div className="pt-4 border-t">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <LayoutGrid className="w-4 h-4" />
-                      Grid Columns
-                    </div>
-                    <div className="flex-1 max-w-xs flex items-center gap-4">
-                      <Slider
-                        value={[gridColumns]}
-                        onValueChange={([val]) => setGridColumns(val)}
-                        min={2}
-                        max={10}
-                        step={1}
-                        className="flex-1"
-                      />
-                      <span className="text-sm font-bold w-4 text-center">{gridColumns}</span>
-                    </div>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           )}
+
+          <DisplaySettingsModal
+            open={showDisplaySettings}
+            onOpenChange={setShowDisplaySettings}
+            gridColumns={gridColumns}
+            onGridColumnsChange={setGridColumns}
+          />
           
           <GameGrid
             games={filteredGames}
