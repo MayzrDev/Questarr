@@ -34,7 +34,7 @@ export default function Header({
   const [mounted, setMounted] = useState(false);
 
   // Fetch storage info every 5 minutes
-  const { data: storageInfo = [] } = useQuery<StorageInfo[]>({
+  const { data: storageInfo = [], isLoading, isError } = useQuery<StorageInfo[]>({
     queryKey: ["/api/downloaders/storage"],
     refetchInterval: 5 * 60 * 1000,
   });
@@ -66,12 +66,21 @@ export default function Header({
 
       <div className="flex items-center gap-4">
         {/* Storage Info */}
-        <div className="hidden md:flex items-center gap-3">
-          {storageInfo.map((info) => (
+        <div className="flex items-center gap-2 sm:gap-3">
+          {isLoading && (
+            <span className="text-[10px] sm:text-xs text-muted-foreground animate-pulse">Checking storage...</span>
+          )}
+          {isError && (
+            <span className="text-[10px] sm:text-xs text-destructive">Error</span>
+          )}
+          {!isLoading && !isError && storageInfo.length === 0 && (
+            <span className="text-[10px] sm:text-xs text-muted-foreground opacity-50 hidden sm:inline">No downloaders</span>
+          )}
+          {!isLoading && !isError && storageInfo.map((info) => (
             <Tooltip key={info.downloaderId}>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground border rounded-full px-2.5 py-1 hover:bg-muted/50 transition-colors cursor-help">
-                  <HardDrive className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-muted-foreground border rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 hover:bg-muted/50 transition-colors cursor-help">
+                  <HardDrive className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
                   <span className="font-medium">{formatBytes(info.freeSpace)}</span>
                 </div>
               </TooltipTrigger>

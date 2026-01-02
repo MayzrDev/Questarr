@@ -47,26 +47,15 @@ describe("Dashboard Configuration", () => {
     // Initial value (default 5)
     expect(localStorage.getItem("dashboardGridColumns")).toBe("5");
 
-    // Click filter toggle to show the slider (assuming the button is visible)
-    const filterToggle = screen.getByLabelText("Toggle filters");
-    fireEvent.click(filterToggle);
+    // Click layout settings toggle to show the modal
+    const layoutToggle = screen.getByLabelText("Toggle layout settings");
+    fireEvent.click(layoutToggle);
 
-    // Find the slider and change its value
-    // Since Radix slider is complex to test with fireEvent, we'll check if the state updates
-    // For simplicity in this test environment, let's just check if it reads from localStorage initially
+    // Verify modal is shown (searching for title)
+    expect(screen.getByText("Display Settings")).toBeDefined();
+
+    // Change setting in localStorage manually to simulate preference change
     localStorage.setItem("dashboardGridColumns", "8");
-    
-    // Re-render
-    const { unmount } = render(
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Dashboard />
-        </TooltipProvider>
-      </QueryClientProvider>
-    );
-    
-    // Unfortunately, multiple renders in one test can be tricky with QueryClient
-    // Let's verify that the component uses the value from localStorage on mount
   });
 
   it("should load grid column preference from local storage on mount", () => {
