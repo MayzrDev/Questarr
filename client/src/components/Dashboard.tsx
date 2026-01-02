@@ -32,6 +32,10 @@ export default function Dashboard() {
     const saved = localStorage.getItem("dashboardGridColumns");
     return saved ? parseInt(saved, 10) : 5;
   });
+  const [showHiddenGames, setShowHiddenGames] = useState<boolean>(() => {
+    return localStorage.getItem("showHiddenGames") === "true";
+  });
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -39,13 +43,20 @@ export default function Dashboard() {
     localStorage.setItem("dashboardGridColumns", gridColumns.toString());
   }, [gridColumns]);
 
+  useEffect(() => {
+    localStorage.setItem("showHiddenGames", showHiddenGames.toString());
+  }, [showHiddenGames]);
+
   // Query user's collection
   const { data: games = [], isLoading, isFetching } = useQuery<Game[]>({
-    queryKey: ["/api/games", debouncedSearchQuery],
+    queryKey: ["/api/games", debouncedSearchQuery, showHiddenGames],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (debouncedSearchQuery.trim()) {
         params.set("search", debouncedSearchQuery.trim());
+      }
+      if (showHiddenGames) {
+        params.set("includeHidden", "true");
       }
       const response = await fetch(`/api/games?${params}`);
       if (!response.ok) throw new Error("Failed to fetch games");
@@ -70,6 +81,26 @@ export default function Dashboard() {
     },
     onError: () => {
       toast({ description: "Failed to update game status", variant: "destructive" });
+    },
+  });
+
+  // Hidden update mutation
+  const hiddenMutation = useMutation({
+    mutationFn: async ({ gameId, hidden }: { gameId: string; hidden: boolean }) => {
+      const response = await fetch(`/api/games/${gameId}/hidden`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hidden }),
+      });
+      if (!response.ok) throw new Error("Failed to update visibility");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/games"] });
+      toast({ description: data.hidden ? "Game hidden from library" : "Game unhidden" });
+    },
+    onError: () => {
+      toast({ description: "Failed to update game visibility", variant: "destructive" });
     },
   });
 
@@ -173,6 +204,13 @@ export default function Dashboard() {
       statusMutation.mutate({ gameId, status: newStatus });
     },
     [statusMutation]
+  );
+
+  const handleToggleHidden = useCallback(
+    (gameId: string, hidden: boolean) => {
+      hiddenMutation.mutate({ gameId, hidden });
+    },
+    [hiddenMutation]
   );
 
   return (
@@ -286,11 +324,14 @@ export default function Dashboard() {
             onOpenChange={setShowDisplaySettings}
             gridColumns={gridColumns}
             onGridColumnsChange={setGridColumns}
+            showHiddenGames={showHiddenGames}
+            onShowHiddenGamesChange={setShowHiddenGames}
           />
           
           <GameGrid
             games={filteredGames}
             onStatusChange={handleStatusChange}
+            onToggleHidden={handleToggleHidden}
             isLoading={isLoading}
             isFetching={isFetching}
             columns={gridColumns}

@@ -6,6 +6,7 @@ import { pool } from "./db.js";
 import {
   insertGameSchema,
   updateGameStatusSchema,
+  updateGameHiddenSchema,
   insertIndexerSchema,
   insertDownloaderSchema,
   insertNotificationSchema,
@@ -250,15 +251,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all games in collection
   app.get("/api/games", authenticateToken, async (req, res) => {
     try {
-      const { search } = req.query;
+      const { search, includeHidden } = req.query;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const userId = (req as any).user.id;
+      const showHidden = includeHidden === "true";
 
       let games;
       if (search && typeof search === "string" && search.trim()) {
-        games = await storage.searchUserGames(userId, search.trim());
+        games = await storage.searchUserGames(userId, search.trim(), showHidden);
       } else {
-        games = await storage.getUserGames(userId);
+        games = await storage.getUserGames(userId, showHidden);
       }
 
       res.json(games);
@@ -272,9 +274,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/games/status/:status", authenticateToken, async (req, res) => {
     try {
       const { status } = req.params;
+      const { includeHidden } = req.query;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const userId = (req as any).user.id;
-      const games = await storage.getUserGamesByStatus(userId, status);
+      const showHidden = includeHidden === "true";
+      
+      const games = await storage.getUserGamesByStatus(userId, status, showHidden);
       res.json(games);
     } catch (error) {
       routesLogger.error({ error }, "error fetching games by status");
@@ -290,14 +295,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     validateRequest,
     async (req: Request, res: Response) => {
       try {
-        const { q } = req.query;
+        const { q, includeHidden } = req.query;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const userId = (req as any).user.id;
+        const showHidden = includeHidden === "true";
 
         if (!q || typeof q !== "string") {
           return res.status(400).json({ error: "Search query required" });
         }
-        const games = await storage.searchUserGames(userId, q);
+        const games = await storage.searchUserGames(userId, q, showHidden);
         res.json(games);
       } catch (error) {
         routesLogger.error({ error }, "error searching games");
@@ -320,19 +326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = (req as any).user.id;
         const gameData = insertGameSchema.parse({ ...req.body, userId });
 
-        // Check if game already exists by IGDB ID for THIS user (wait, getGameByIgdbId is global? No, it should be user scoped ideally, but IGDB ID is unique per game. However, with multi-user, multiple users can have the same game. So we need checkUserGameByIgdbId or similar. But storage.getGameByIgdbId currently returns *any* game with that ID. I should fix storage first or check manually here)
-        
-        // Actually, I removed the unique constraint on igdbId in the schema.
-        // I need to check if *this user* already has the game.
-        // Since I haven't added `getUserGameByIgdbId` to storage yet, I'll do it inefficiently for now by getting all user games or just assume `addGame` handles duplication logic? No, `addGame` just inserts.
-        
-        // Let's add `getUserGameByIgdbId` to storage in next step or now?
-        // I'll proceed with adding `userId` to gameData first.
-        
-        // ... Wait, I should probably check for existence.
-        // Let's modify the check logic below.
-
-        const userGames = await storage.getUserGames(userId);
+        const userGames = await storage.getUserGames(userId, true); // Check against all games including hidden
         const existingGame = userGames.find(g => g.igdbId === gameData.igdbId);
         
         if (existingGame) {
@@ -379,6 +373,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         routesLogger.error({ error }, "error updating game status");
         res.status(500).json({ error: "Failed to update game status" });
+      }
+    }
+  );
+
+  // Update game visibility (hidden status)
+  app.patch(
+    "/api/games/:id/hidden",
+    sensitiveEndpointLimiter,
+    sanitizeGameId,
+    validateRequest,
+    async (req: Request, res: Response) => {
+      try {
+        const { id } = req.params;
+        const { hidden } = updateGameHiddenSchema.parse(req.body);
+
+        const updatedGame = await storage.updateGameHidden(id, hidden);
+        if (!updatedGame) {
+          return res.status(404).json({ error: "Game not found" });
+        }
+
+        res.json(updatedGame);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: "Invalid hidden data", details: error.errors });
+        }
+        routesLogger.error({ error }, "error updating game visibility");
+        res.status(500).json({ error: "Failed to update game visibility" });
       }
     }
   );

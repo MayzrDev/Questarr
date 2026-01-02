@@ -57,5 +57,6 @@ export function mapGameToInsertGame(game: Game): InsertGame {
     genres: game.genres,
     screenshots: game.screenshots,
     status: game.status,
+    hidden: game.hidden || false,
   };
 }

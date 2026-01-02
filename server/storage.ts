@@ -33,14 +33,15 @@ export interface IStorage {
   // Game methods
   getGame(id: string): Promise<Game | undefined>;
   getGameByIgdbId(igdbId: number): Promise<Game | undefined>;
-  getUserGames(userId: string): Promise<Game[]>;
+  getUserGames(userId: string, includeHidden?: boolean): Promise<Game[]>;
   getAllGames(): Promise<Game[]>; // Keep for admin/debug or global search? Or maybe deprecated.
   getGamesByStatus(status: string): Promise<Game[]>; // Should be user scoped too
-  getUserGamesByStatus(userId: string, status: string): Promise<Game[]>;
-  searchUserGames(userId: string, query: string): Promise<Game[]>;
+  getUserGamesByStatus(userId: string, status: string, includeHidden?: boolean): Promise<Game[]>;
+  searchUserGames(userId: string, query: string, includeHidden?: boolean): Promise<Game[]>;
   searchGames(query: string): Promise<Game[]>; // Deprecated?
   addGame(game: InsertGame): Promise<Game>;
   updateGameStatus(id: string, statusUpdate: UpdateGameStatus): Promise<Game | undefined>;
+  updateGameHidden(id: string, hidden: boolean): Promise<Game | undefined>;
   updateGame(id: string, updates: Partial<Game>): Promise<Game | undefined>;
   removeGame(id: string): Promise<boolean>;
   assignOrphanGamesToUser(userId: string): Promise<number>;
@@ -121,9 +122,9 @@ export class MemStorage implements IStorage {
     return Array.from(this.games.values()).find((game) => game.igdbId === igdbId);
   }
 
-  async getUserGames(userId: string): Promise<Game[]> {
+  async getUserGames(userId: string, includeHidden = false): Promise<Game[]> {
     return Array.from(this.games.values())
-      .filter((game) => game.userId === userId)
+      .filter((game) => game.userId === userId && (includeHidden || !game.hidden))
       .sort((a, b) => new Date(b.addedAt || 0).getTime() - new Date(a.addedAt || 0).getTime());
   }
 
@@ -139,9 +140,9 @@ export class MemStorage implements IStorage {
       .sort((a, b) => new Date(b.addedAt || 0).getTime() - new Date(a.addedAt || 0).getTime());
   }
 
-  async getUserGamesByStatus(userId: string, status: string): Promise<Game[]> {
+  async getUserGamesByStatus(userId: string, status: string, includeHidden = false): Promise<Game[]> {
     return Array.from(this.games.values())
-      .filter((game) => game.userId === userId && game.status === status)
+      .filter((game) => game.userId === userId && game.status === status && (includeHidden || !game.hidden))
       .sort((a, b) => new Date(b.addedAt || 0).getTime() - new Date(a.addedAt || 0).getTime());
   }
 
@@ -157,12 +158,13 @@ export class MemStorage implements IStorage {
       .sort((a, b) => new Date(b.addedAt || 0).getTime() - new Date(a.addedAt || 0).getTime());
   }
 
-  async searchUserGames(userId: string, query: string): Promise<Game[]> {
+  async searchUserGames(userId: string, query: string, includeHidden = false): Promise<Game[]> {
     const lowercaseQuery = query.toLowerCase();
     return Array.from(this.games.values())
       .filter(
         (game) =>
           game.userId === userId &&
+          (includeHidden || !game.hidden) &&
           (game.title.toLowerCase().includes(lowercaseQuery) ||
             game.genres?.some((genre) => genre.toLowerCase().includes(lowercaseQuery)) ||
             game.platforms?.some((platform) => platform.toLowerCase().includes(lowercaseQuery)))
@@ -177,6 +179,7 @@ export class MemStorage implements IStorage {
       id,
       userId: insertGame.userId || null,
       status: insertGame.status || "wanted",
+      hidden: insertGame.hidden ?? false,
       summary: insertGame.summary || null,
       coverUrl: insertGame.coverUrl || null,
       releaseDate: insertGame.releaseDate || null,
@@ -202,6 +205,19 @@ export class MemStorage implements IStorage {
       ...game,
       status: statusUpdate.status,
       completedAt: statusUpdate.status === "completed" ? new Date() : null,
+    };
+
+    this.games.set(id, updatedGame);
+    return updatedGame;
+  }
+
+  async updateGameHidden(id: string, hidden: boolean): Promise<Game | undefined> {
+    const game = this.games.get(id);
+    if (!game) return undefined;
+
+    const updatedGame: Game = {
+      ...game,
+      hidden,
     };
 
     this.games.set(id, updatedGame);
@@ -465,11 +481,11 @@ export class DatabaseStorage implements IStorage {
     return game || undefined;
   }
 
-  async getUserGames(userId: string): Promise<Game[]> {
+  async getUserGames(userId: string, includeHidden = false): Promise<Game[]> {
     return db
       .select()
       .from(games)
-      .where(eq(games.userId, userId))
+      .where(and(eq(games.userId, userId), includeHidden ? undefined : eq(games.hidden, false)))
       .orderBy(sql`${games.addedAt} DESC`);
   }
 
@@ -491,13 +507,19 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
-  async getUserGamesByStatus(userId: string, status: string): Promise<Game[]> {
+  async getUserGamesByStatus(userId: string, status: string, includeHidden = false): Promise<Game[]> {
     return (
       db
         .select()
         .from(games)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .where(and(eq(games.userId, userId), eq(games.status, status as any)))
+        .where(
+          and(
+            eq(games.userId, userId),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            eq(games.status, status as any),
+            includeHidden ? undefined : eq(games.hidden, false)
+          )
+        )
         .orderBy(sql`${games.addedAt} DESC`)
     );
   }
@@ -517,7 +539,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(sql`${games.addedAt} DESC`);
   }
 
-  async searchUserGames(userId: string, query: string): Promise<Game[]> {
+  async searchUserGames(userId: string, query: string, includeHidden = false): Promise<Game[]> {
     const searchTerm = `%${query.toLowerCase()}%`;
     return db
       .select()
@@ -525,6 +547,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(games.userId, userId),
+          includeHidden ? undefined : eq(games.hidden, false),
           or(
             ilike(games.title, searchTerm),
             sql`EXISTS (SELECT 1 FROM unnest(${games.genres}) AS genre WHERE genre ILIKE ${searchTerm})`,
@@ -549,6 +572,7 @@ export class DatabaseStorage implements IStorage {
       genres: insertGame.genres ?? null,
       screenshots: insertGame.screenshots ?? null,
       status: insertGame.status ?? "wanted",
+      hidden: insertGame.hidden ?? false,
       originalReleaseDate: insertGame.originalReleaseDate ?? null,
       releaseStatus: insertGame.releaseStatus ?? "upcoming",
     };
@@ -567,6 +591,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(games.id, id))
       .returning();
 
+    return updatedGame || undefined;
+  }
+
+  async updateGameHidden(id: string, hidden: boolean): Promise<Game | undefined> {
+    const [updatedGame] = await db.update(games).set({ hidden }).where(eq(games.id, id)).returning();
     return updatedGame || undefined;
   }
 

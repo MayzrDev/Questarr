@@ -9,6 +9,7 @@ interface GameGridProps {
   onStatusChange?: (gameId: string, newStatus: GameStatus) => void;
   onViewDetails?: (gameId: string) => void;
   onTrackGame?: (game: Game) => void;
+  onToggleHidden?: (gameId: string, hidden: boolean) => void;
   isDiscovery?: boolean;
   isLoading?: boolean;
   isFetching?: boolean;
@@ -20,6 +21,7 @@ export default function GameGrid({
   onStatusChange,
   onViewDetails,
   onTrackGame,
+  onToggleHidden,
   isDiscovery = false,
   isLoading = false,
   isFetching = false,
@@ -86,6 +88,7 @@ export default function GameGrid({
           onStatusChange={onStatusChange}
           onViewDetails={onViewDetails}
           onTrackGame={onTrackGame}
+          onToggleHidden={onToggleHidden}
           isDiscovery={isDiscovery}
         />
       ))}

@@ -20,10 +20,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Download, Loader2, FileDown, PackagePlus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Download, Loader2, FileDown, PackagePlus, SlidersHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { type Game } from "@shared/schema";
 import { 
@@ -86,6 +89,12 @@ export default function GameDownloadDialog({ game, open, onOpenChange }: GameDow
   const [selectedMainTorrent, setSelectedMainTorrent] = useState<TorrentItem | null>(null);
   const [isDirectDownloadMode, setIsDirectDownloadMode] = useState(false);
   const [selectedUpdateIndices, setSelectedUpdateIndices] = useState<Set<number>>(new Set());
+  
+  // Filter states
+  const [minSeeders, setMinSeeders] = useState<number>(0);
+  const [sortBy, setSortBy] = useState<'seeders' | 'date' | 'size'>('seeders');
+  const [showFilters, setShowFilters] = useState(false);
+  const [visibleCategories, setVisibleCategories] = useState<Set<TorrentCategory>>(new Set(['main', 'update', 'dlc', 'extra'] as TorrentCategory[]));
 
   // Auto-populate search when dialog opens with game title
   useEffect(() => {
@@ -97,6 +106,9 @@ export default function GameDownloadDialog({ game, open, onOpenChange }: GameDow
       setSelectedMainTorrent(null);
       setIsDirectDownloadMode(false);
       setSelectedUpdateIndices(new Set());
+      setMinSeeders(0);
+      setSortBy('seeders');
+      setShowFilters(false);
     }
   }, [open, game]);
 
@@ -110,6 +122,29 @@ export default function GameDownloadDialog({ game, open, onOpenChange }: GameDow
     if (!searchResults?.items) return { main: [], update: [], dlc: [], extra: [] };
     return groupTorrentsByCategory(searchResults.items);
   }, [searchResults?.items]);
+
+  // Apply filters and sorting
+  const filteredCategorizedTorrents = useMemo(() => {
+    const filtered: Record<TorrentCategory, TorrentItem[]> = { main: [], update: [], dlc: [], extra: [] };
+    
+    for (const [category, torrents] of Object.entries(categorizedTorrents) as [TorrentCategory, TorrentItem[]][]) {
+      if (!visibleCategories.has(category)) continue;
+      
+      filtered[category] = torrents
+        .filter(t => (t.seeders ?? 0) >= minSeeders)
+        .sort((a, b) => {
+          if (sortBy === 'seeders') {
+            return (b.seeders ?? 0) - (a.seeders ?? 0);
+          } else if (sortBy === 'date') {
+            return new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime();
+          } else { // size
+            return (b.size ?? 0) - (a.size ?? 0);
+          }
+        });
+    }
+    
+    return filtered;
+  }, [categorizedTorrents, minSeeders, sortBy, visibleCategories]);
 
   // Sorted items for display (by date)
   const sortedItems = useMemo(() => {
@@ -336,6 +371,18 @@ export default function GameDownloadDialog({ game, open, onOpenChange }: GameDow
     setSelectedUpdateIndices(new Set());
   };
 
+  const toggleCategory = (category: TorrentCategory) => {
+    setVisibleCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
+  };
+
   if (!game) return null;
 
   return (
@@ -345,6 +392,81 @@ export default function GameDownloadDialog({ game, open, onOpenChange }: GameDow
           <DialogTitle>Download {game.title}</DialogTitle>
           <DialogDescription>Search results for torrents matching this game</DialogDescription>
         </DialogHeader>
+
+        <div className="flex-shrink-0 mt-4 space-y-3">
+          <Input
+            type="text"
+            placeholder="Search for torrents..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full"
+          />
+          
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
+            </Button>
+            {minSeeders > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                Min Seeders: {minSeeders}
+              </Badge>
+            )}
+          </div>
+
+          {showFilters && (
+            <div className="grid grid-cols-2 gap-4 p-4 border rounded-md bg-muted/50">
+              <div className="space-y-2">
+                <Label htmlFor="minSeeders" className="text-sm">Min Seeders</Label>
+                <Input
+                  id="minSeeders"
+                  type="number"
+                  min="0"
+                  value={minSeeders}
+                  onChange={(e) => setMinSeeders(parseInt(e.target.value) || 0)}
+                  className="w-full"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="sortBy" className="text-sm">Sort By</Label>
+                <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+                  <SelectTrigger id="sortBy">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="seeders">Seeders (High to Low)</SelectItem>
+                    <SelectItem value="date">Date (Newest First)</SelectItem>
+                    <SelectItem value="size">Size (Largest First)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="col-span-2 space-y-2">
+                <Label className="text-sm">Categories</Label>
+                <div className="flex flex-wrap gap-2">
+                  {(['main', 'update', 'dlc', 'extra'] as const).map(cat => (
+                    <div key={cat} className="flex items-center">
+                      <Checkbox
+                        id={`cat-${cat}`}
+                        checked={visibleCategories.has(cat)}
+                        onCheckedChange={() => toggleCategory(cat)}
+                      />
+                      <label htmlFor={`cat-${cat}`} className="ml-2 text-sm cursor-pointer capitalize">
+                        {cat === 'main' ? 'Main Game' : cat === 'update' ? 'Updates' : cat === 'dlc' ? 'DLC' : 'Extras'}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         <ScrollArea className="flex-1 mt-4 overflow-y-auto">
           <div className="space-y-4 pr-4">
@@ -370,7 +492,7 @@ export default function GameDownloadDialog({ game, open, onOpenChange }: GameDow
               <div className="space-y-6">
                 {/* Render each category separately */}
                 {(['main', 'update', 'dlc', 'extra'] as const).map((category) => {
-                  const torrentsInCategory = categorizedTorrents[category];
+                  const torrentsInCategory = filteredCategorizedTorrents[category];
                   if (torrentsInCategory.length === 0) return null;
 
                   // Sort by seeders within category
@@ -412,15 +534,9 @@ export default function GameDownloadDialog({ game, open, onOpenChange }: GameDow
                             className="p-2 text-sm flex justify-between items-center hover:bg-muted/30 transition-colors gap-4"
                           >
                             <div className="flex-1 min-w-0">
-                              <a 
-                                href={torrent.link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-medium truncate hover:underline text-primary block" 
-                                title={torrent.title}
-                              >
+                              <div className="font-medium truncate" title={torrent.title}>
                                 {torrent.title}
-                              </a>
+                              </div>
                               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                                 <span>{formatDate(torrent.pubDate)}</span>
                                 <span>•</span>

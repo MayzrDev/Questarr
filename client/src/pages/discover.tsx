@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Loader2, Settings2 } from "lucide-react";
 import GameCarouselSection from "@/components/GameCarouselSection";
 import { type Game } from "@shared/schema";
 import { type GameStatus } from "@/components/StatusBadge";
@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import DiscoverSettingsModal from "@/components/DiscoverSettingsModal";
 
 interface Genre {
   id: number;
@@ -69,11 +71,58 @@ const SelectTriggerWithSpinner = ({
 export default function DiscoverPage() {
   const [selectedGenre, setSelectedGenre] = useState<string>("Adventure");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("PC");
+  const [showSettings, setShowSettings] = useState(false);
+  const [hideOwned, setHideOwned] = useState<boolean>(() => {
+    return localStorage.getItem("discoverHideOwned") === "true";
+  });
+  const [hideWanted, setHideWanted] = useState<boolean>(() => {
+    return localStorage.getItem("discoverHideWanted") === "true";
+  });
+
   // ⚡ Bolt: Using the useDebounce hook to limit the frequency of API calls
   const debouncedGenre = useDebounce(selectedGenre, 300);
   const debouncedPlatform = useDebounce(selectedPlatform, 300);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    localStorage.setItem("discoverHideOwned", hideOwned.toString());
+  }, [hideOwned]);
+
+  useEffect(() => {
+    localStorage.setItem("discoverHideWanted", hideWanted.toString());
+  }, [hideWanted]);
+
+  // Fetch local games to filter hidden ones
+  const { data: localGames = [] } = useQuery<Game[]>({
+    queryKey: ["/api/games?includeHidden=true"], // We need all games to know which are hidden
+    queryFn: async () => {
+      const response = await fetch("/api/games?includeHidden=true");
+      if (!response.ok) throw new Error("Failed to fetch local games");
+      return response.json();
+    },
+  });
+
+  const hiddenIgdbIds = useMemo(() => {
+    return new Set(localGames.filter(g => g.hidden).map(g => g.igdbId));
+  }, [localGames]);
+
+  const ownedIgdbIds = useMemo(() => {
+    return new Set(localGames.filter(g => g.status === "owned" || g.status === "completed" || g.status === "downloading").map(g => g.igdbId));
+  }, [localGames]);
+
+  const wantedIgdbIds = useMemo(() => {
+    return new Set(localGames.filter(g => g.status === "wanted" && !g.hidden).map(g => g.igdbId));
+  }, [localGames]);
+
+  const filterGames = useCallback((games: Game[]) => {
+    return games.filter((g: Game) => {
+      if (hiddenIgdbIds.has(g.igdbId)) return false;
+      if (hideOwned && ownedIgdbIds.has(g.igdbId)) return false;
+      if (hideWanted && wantedIgdbIds.has(g.igdbId)) return false;
+      return true;
+    });
+  }, [hiddenIgdbIds, ownedIgdbIds, wantedIgdbIds, hideOwned, hideWanted]);
 
   // Fetch available genres with caching and error handling
   const {
@@ -154,6 +203,49 @@ export default function DiscoverPage() {
     },
   });
 
+  // Hide game mutation
+  const hideGameMutation = useMutation({
+    mutationFn: async (game: Game) => {
+      // Check if game exists locally first
+      const existingGame = localGames.find(g => g.igdbId === game.igdbId);
+      
+      if (existingGame) {
+        // Update existing game
+        const response = await fetch(`/api/games/${existingGame.id}/hidden`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hidden: true }),
+        });
+        if (!response.ok) throw new Error("Failed to hide game");
+        return response.json();
+      } else {
+        // Add new hidden game
+        const gameData = mapGameToInsertGame(game);
+        const response = await fetch("/api/games", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...gameData,
+            status: "wanted", // Default status, but hidden
+            hidden: true,
+          }),
+        });
+        if (!response.ok) throw new Error("Failed to hide game");
+        return response.json();
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/games"] });
+      toast({ description: "Game hidden from discovery" });
+    },
+    onError: () => {
+      toast({
+        description: "Failed to hide game",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Add game mutation (for status changes on Discovery games)
   const addGameMutation = useMutation({
     mutationFn: async ({ game, status }: { game: Game; status: GameStatus }) => {
@@ -218,6 +310,33 @@ export default function DiscoverPage() {
     [trackGameMutation]
   );
 
+  const handleToggleHidden = useCallback(
+    (gameId: string, hidden: boolean) => {
+        // We only support hiding from discovery page for now via the card button
+        // Unhiding is done via settings
+        if (hidden) {
+             const findGameInQueries = (): Game | undefined => {
+                // Search in all cached query data
+                const allQueries = queryClient.getQueriesData<Game[]>({
+                  predicate: (query) => {
+                    const key = query.queryKey[0] as string;
+                    return key.startsWith("/api/igdb/");
+                  },
+                });
+
+                for (const [, data] of allQueries) {
+                  const game = data?.find((g) => g.id === gameId);
+                  if (game) return game;
+                }
+                return undefined;
+              };
+              const game = findGameInQueries();
+              if(game) hideGameMutation.mutate(game);
+        }
+    },
+    [queryClient, hideGameMutation]
+  );
+
   // ⚡ Bolt: Memoizing fetch functions with `useCallback` ensures they have stable
   // references across re-renders. This is critical for preventing child components
   // like `GameCarouselSection` from re-rendering unnecessarily when they are
@@ -225,20 +344,23 @@ export default function DiscoverPage() {
   const fetchPopularGames = useCallback(async (): Promise<Game[]> => {
     const response = await fetch("/api/igdb/popular?limit=20");
     if (!response.ok) throw new Error("Failed to fetch popular games");
-    return response.json();
-  }, []);
+    const games = await response.json();
+    return filterGames(games);
+  }, [filterGames]);
 
   const fetchRecentGames = useCallback(async (): Promise<Game[]> => {
     const response = await fetch("/api/igdb/recent?limit=20");
     if (!response.ok) throw new Error("Failed to fetch recent games");
-    return response.json();
-  }, []);
+    const games = await response.json();
+    return filterGames(games);
+  }, [filterGames]);
 
   const fetchUpcomingGames = useCallback(async (): Promise<Game[]> => {
     const response = await fetch("/api/igdb/upcoming?limit=20");
     if (!response.ok) throw new Error("Failed to fetch upcoming games");
-    return response.json();
-  }, []);
+    const games = await response.json();
+    return filterGames(games);
+  }, [filterGames]);
 
   const fetchGamesByGenre = useCallback(async (): Promise<Game[]> => {
     // Validate selectedGenre against known genres before making API call
@@ -251,8 +373,9 @@ export default function DiscoverPage() {
 
     const response = await fetch(`/api/igdb/genre/${encodeURIComponent(debouncedGenre)}?limit=20`);
     if (!response.ok) throw new Error("Failed to fetch games by genre");
-    return response.json();
-  }, [debouncedGenre, genres]);
+    const games = await response.json();
+    return filterGames(games);
+  }, [debouncedGenre, genres, filterGames]);
 
   const fetchGamesByPlatform = useCallback(async (): Promise<Game[]> => {
     // Validate selectedPlatform against known platforms before making API call
@@ -267,8 +390,9 @@ export default function DiscoverPage() {
       `/api/igdb/platform/${encodeURIComponent(debouncedPlatform)}?limit=20`
     );
     if (!response.ok) throw new Error("Failed to fetch games by platform");
-    return response.json();
-  }, [debouncedPlatform, platforms]);
+    const games = await response.json();
+    return filterGames(games);
+  }, [debouncedPlatform, platforms, filterGames]);
 
   const displayGenres: Genre[] = genres.length > 0 ? genres : DEFAULT_GENRES;
   const displayPlatforms: Platform[] = platforms.length > 0 ? platforms : DEFAULT_PLATFORMS;
@@ -276,40 +400,58 @@ export default function DiscoverPage() {
   return (
     <div className="h-full w-full overflow-x-hidden overflow-y-auto" data-testid="discover-page">
       <div className="p-6 space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold mb-2">Discover Games</h1>
-          <p className="text-muted-foreground">
-            Explore popular games, new releases, and find your next adventure
-          </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold mb-2">Discover Games</h1>
+            <p className="text-muted-foreground">
+              Explore popular games, new releases, and find your next adventure
+            </p>
+          </div>
+          <Button variant="outline" size="icon" onClick={() => setShowSettings(true)}>
+            <Settings2 className="h-4 w-4" />
+          </Button>
         </div>
+
+      <DiscoverSettingsModal 
+        open={showSettings} 
+        onOpenChange={setShowSettings} 
+        hiddenGames={localGames.filter(g => g.hidden)}
+        hideOwned={hideOwned}
+        onHideOwnedChange={setHideOwned}
+        hideWanted={hideWanted}
+        onHideWantedChange={setHideWanted}
+      />
 
       {/* Popular Games Section */}
       <GameCarouselSection
         title="Popular Games"
-        queryKey={["/api/igdb/popular"]}
+        queryKey={["/api/igdb/popular", hiddenIgdbIds.size, hideOwned, hideWanted]}
         queryFn={fetchPopularGames}
         onStatusChange={handleStatusChange}
         onTrackGame={handleTrackGame}
+        onToggleHidden={handleToggleHidden}
         isDiscovery={true}
       />
 
       {/* Recent Releases Section */}
       <GameCarouselSection
         title="Recent Releases"
-        queryKey={["/api/igdb/recent"]}
+        queryKey={["/api/igdb/recent", hiddenIgdbIds.size, hideOwned, hideWanted]}
         queryFn={fetchRecentGames}
         onStatusChange={handleStatusChange}
         onTrackGame={handleTrackGame}
+        onToggleHidden={handleToggleHidden}
         isDiscovery={true}
       />
 
       {/* Upcoming Releases Section */}
       <GameCarouselSection
         title="Coming Soon"
-        queryKey={["/api/igdb/upcoming"]}
+        queryKey={["/api/igdb/upcoming", hiddenIgdbIds.size, hideOwned, hideWanted]}
         queryFn={fetchUpcomingGames}
         onStatusChange={handleStatusChange}
         onTrackGame={handleTrackGame}
+        onToggleHidden={handleToggleHidden}
         isDiscovery={true}
       />
 
@@ -336,10 +478,11 @@ export default function DiscoverPage() {
         </div>
         <GameCarouselSection
           title={`${selectedGenre} Games`}
-          queryKey={["/api/igdb/genre", debouncedGenre]}
+          queryKey={["/api/igdb/genre", debouncedGenre, hiddenIgdbIds.size, hideOwned, hideWanted]}
           queryFn={fetchGamesByGenre}
           onStatusChange={handleStatusChange}
           onTrackGame={handleTrackGame}
+          onToggleHidden={handleToggleHidden}
           isDiscovery={true}
         />
       </div>
@@ -367,10 +510,11 @@ export default function DiscoverPage() {
         </div>
         <GameCarouselSection
           title={`${selectedPlatform} Games`}
-          queryKey={["/api/igdb/platform", debouncedPlatform]}
+          queryKey={["/api/igdb/platform", debouncedPlatform, hiddenIgdbIds.size, hideOwned, hideWanted]}
           queryFn={fetchGamesByPlatform}
           onStatusChange={handleStatusChange}
           onTrackGame={handleTrackGame}
+          onToggleHidden={handleToggleHidden}
           isDiscovery={true}
         />
       </div>
