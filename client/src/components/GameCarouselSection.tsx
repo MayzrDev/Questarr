@@ -21,11 +21,13 @@ import { type GameStatus } from "./StatusBadge";
 
 interface GameCarouselSectionProps {
   title: string;
-  queryKey: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  queryKey: any[];
   queryFn: () => Promise<Game[]>;
   onStatusChange?: (gameId: string, newStatus: GameStatus) => void;
   onViewDetails?: (gameId: string) => void;
   onTrackGame?: (game: Game) => void;
+  onToggleHidden?: (gameId: string, hidden: boolean) => void;
   isDiscovery?: boolean;
 }
 
@@ -39,6 +41,7 @@ const GameCarouselSection = ({
   onStatusChange,
   onViewDetails,
   onTrackGame,
+  onToggleHidden,
   isDiscovery = true,
 }: GameCarouselSectionProps) => {
   const [api, setApi] = useState<CarouselApi>();
@@ -212,6 +215,7 @@ const GameCarouselSection = ({
                   onStatusChange={onStatusChange}
                   onViewDetails={onViewDetails}
                   onTrackGame={onTrackGame}
+                  onToggleHidden={onToggleHidden}
                   isDiscovery={isDiscovery}
                 />
               </CarouselItem>

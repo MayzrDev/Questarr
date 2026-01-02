@@ -1,7 +1,7 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Info, Star, Calendar } from "lucide-react";
+import { Download, Info, Star, Calendar, Eye, EyeOff } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import StatusBadge, { type GameStatus } from "./StatusBadge";
@@ -15,6 +15,7 @@ interface GameCardProps {
   onStatusChange?: (gameId: string, newStatus: GameStatus) => void;
   onViewDetails?: (gameId: string) => void;
   onTrackGame?: (game: Game) => void;
+  onToggleHidden?: (gameId: string, hidden: boolean) => void;
   isDiscovery?: boolean;
 }
 
@@ -52,6 +53,7 @@ const GameCard = ({
   onStatusChange,
   onViewDetails,
   onTrackGame,
+  onToggleHidden,
   isDiscovery = false,
 }: GameCardProps) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -76,9 +78,13 @@ const GameCard = ({
     setDownloadOpen(true);
   };
 
+  const handleToggleHidden = () => {
+    onToggleHidden?.(game.id, !game.hidden);
+  };
+
   return (
     <Card
-      className="group hover-elevate transition-all duration-200 max-w-[225px] mx-auto w-full"
+      className={`group hover-elevate transition-all duration-200 max-w-[225px] mx-auto w-full ${game.hidden ? 'opacity-60 grayscale' : ''}`}
       data-testid={`card-game-${game.id}`}
     >
       <div className="relative">
@@ -99,6 +105,9 @@ const GameCard = ({
             <Badge variant={releaseStatus.variant} className={`text-xs ${releaseStatus.className || ""}`}>
               {releaseStatus.label}
             </Badge>
+          )}
+          {game.hidden && (
+            <Badge variant="secondary" className="text-xs bg-gray-500 text-white">Hidden</Badge>
           )}
         </div>
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-t-md flex items-center justify-center gap-2">
@@ -136,6 +145,24 @@ const GameCard = ({
               <p>View Details</p>
             </TooltipContent>
           </Tooltip>
+          {!isDiscovery && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  onClick={handleToggleHidden}
+                  aria-label={game.hidden ? "Unhide game" : "Hide game"}
+                  data-testid={`button-toggle-hidden-${game.id}`}
+                >
+                  {game.hidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{game.hidden ? "Unhide Game" : "Hide Game"}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
       <CardContent className="p-3">

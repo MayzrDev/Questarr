@@ -29,6 +29,7 @@ export const games = pgTable("games", {
   originalReleaseDate: text("original_release_date"),
   releaseStatus: text("release_status", { enum: ["released", "upcoming", "delayed", "tbd"] })
     .default("upcoming"),
+  hidden: boolean("hidden").default(false),
   addedAt: timestamp("added_at").defaultNow(),
   completedAt: timestamp("completed_at"),
 });
@@ -114,6 +115,11 @@ export const insertGameSchema = createInsertSchema(games, {
       .nullable()
       .optional()
       .transform((val) => val ?? "wanted"),
+  hidden: (schema) =>
+    schema
+      .nullable()
+      .optional()
+      .transform((val) => val ?? false),
 }).omit({
   id: true,
   addedAt: true,
@@ -123,6 +129,10 @@ export const insertGameSchema = createInsertSchema(games, {
 export const updateGameStatusSchema = z.object({
   status: z.enum(["wanted", "owned", "completed", "downloading"]),
   completedAt: z.date().optional(),
+});
+
+export const updateGameHiddenSchema = z.object({
+  hidden: z.boolean(),
 });
 
 export const insertIndexerSchema = createInsertSchema(indexers).omit({
