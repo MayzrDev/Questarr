@@ -166,6 +166,11 @@ class IGDBClient {
   }
 
   async searchGames(query: string, limit: number = 20): Promise<IGDBGame[]> {
+    if (!config.igdb.isConfigured) {
+      igdbLogger.warn("IGDB credentials not configured, skipping search");
+      return [];
+    }
+
     // Sanitize the search query to prevent query injection
     const sanitizedQuery = sanitizeIgdbInput(query);
     if (!sanitizedQuery) return [];
@@ -276,6 +281,8 @@ class IGDBClient {
   }
 
   async getGameById(id: number): Promise<IGDBGame | null> {
+    if (!config.igdb.isConfigured) return null;
+
     const igdbQuery = `
       fields name, summary, cover.url, first_release_date, rating, platforms.name, genres.name, screenshots.url, involved_companies.company.name, involved_companies.developer, involved_companies.publisher;
       where id = ${id};
@@ -287,6 +294,7 @@ class IGDBClient {
   }
 
   async getGamesByIds(ids: number[]): Promise<IGDBGame[]> {
+    if (!config.igdb.isConfigured) return [];
     if (ids.length === 0) return [];
 
     // Split into chunks of 100 to avoid query length limits
@@ -312,6 +320,8 @@ class IGDBClient {
   }
 
   async getPopularGames(limit: number = 20): Promise<IGDBGame[]> {
+    if (!config.igdb.isConfigured) return [];
+
     const igdbQuery = `
       fields name, summary, cover.url, first_release_date, rating, platforms.name, genres.name, screenshots.url, involved_companies.company.name, involved_companies.developer, involved_companies.publisher;
       where rating > 80 & rating_count > 10;
@@ -324,6 +334,8 @@ class IGDBClient {
   }
 
   async getRecentReleases(limit: number = 20): Promise<IGDBGame[]> {
+    if (!config.igdb.isConfigured) return [];
+
     const thirtyDaysAgo = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
     const now = Math.floor(Date.now() / 1000);
 
@@ -339,6 +351,8 @@ class IGDBClient {
   }
 
   async getUpcomingReleases(limit: number = 20): Promise<IGDBGame[]> {
+    if (!config.igdb.isConfigured) return [];
+
     const now = Math.floor(Date.now() / 1000);
     const sixMonthsFromNow = Math.floor((Date.now() + 6 * 30 * 24 * 60 * 60 * 1000) / 1000);
 
@@ -358,6 +372,7 @@ class IGDBClient {
     excludeIds: number[] = [],
     limit: number = 20
   ): Promise<IGDBGame[]> {
+    if (!config.igdb.isConfigured) return [];
     if (genres.length === 0) return [];
 
     // Convert genre names to a query format - use regex matching for better results
@@ -398,6 +413,7 @@ class IGDBClient {
     excludeIds: number[] = [],
     limit: number = 20
   ): Promise<IGDBGame[]> {
+    if (!config.igdb.isConfigured) return [];
     if (platforms.length === 0) return [];
 
     // Use common platform names for better matching
@@ -450,6 +466,8 @@ class IGDBClient {
     userGames: Array<{ genres?: string[]; platforms?: string[]; igdbId?: number }>,
     limit: number = 20
   ): Promise<IGDBGame[]> {
+    if (!config.igdb.isConfigured) return [];
+
     if (userGames.length === 0) {
       // If user has no games, show popular games
       return this.getPopularGames(limit);
@@ -525,6 +543,8 @@ class IGDBClient {
     limit: number = 20,
     offset: number = 0
   ): Promise<IGDBGame[]> {
+    if (!config.igdb.isConfigured) return [];
+
     // Sanitize the genre name to prevent query injection
     const cleanGenre = sanitizeIgdbInput(genre);
     if (!cleanGenre) return [];
@@ -555,6 +575,8 @@ class IGDBClient {
     limit: number = 20,
     offset: number = 0
   ): Promise<IGDBGame[]> {
+    if (!config.igdb.isConfigured) return [];
+
     // Sanitize the platform name to prevent query injection
     const cleanPlatform = sanitizeIgdbInput(platform);
     if (!cleanPlatform) return [];
@@ -581,6 +603,8 @@ class IGDBClient {
   }
 
   async getGenres(): Promise<Array<{ id: number; name: string }>> {
+    if (!config.igdb.isConfigured) return [];
+
     const igdbQuery = `
       fields id, name;
       sort name asc;
@@ -597,6 +621,8 @@ class IGDBClient {
   }
 
   async getPlatforms(): Promise<Array<{ id: number; name: string }>> {
+    if (!config.igdb.isConfigured) return [];
+
     // Only get major gaming platforms
     const igdbQuery = `
       fields id, name;
