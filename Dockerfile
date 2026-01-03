@@ -29,6 +29,10 @@ RUN npm ci --omit=dev
 # Copy necessary files from build stage
 COPY --from=builder /app/dist ./dist
 
+# Copy drizzle configuration and schema for migrations
+COPY --from=builder /app/drizzle.config.ts ./
+COPY --from=builder /app/shared ./shared
+
 # Copy configuration files
 COPY --from=builder /app/package.json ./
 
