@@ -29,6 +29,7 @@ async function getJwtSecret(): Promise<string> {
     config.auth.jwtSecret &&
     config.auth.jwtSecret !== "questarr-default-secret-change-me"
   ) {
+    console.log("Using JWT secret from environment variable");
     cachedJwtSecret = config.auth.jwtSecret;
     return cachedJwtSecret;
   }
@@ -36,6 +37,7 @@ async function getJwtSecret(): Promise<string> {
   // Check DB
   const dbSecret = await storage.getSystemConfig("jwt_secret");
   if (dbSecret) {
+    console.log("Loaded JWT secret from database");
     cachedJwtSecret = dbSecret;
     return cachedJwtSecret;
   }
@@ -45,7 +47,8 @@ async function getJwtSecret(): Promise<string> {
   await storage.setSystemConfig("jwt_secret", newSecret);
   cachedJwtSecret = newSecret;
   
-  console.log("Generated and stored new secure JWT secret");
+  console.warn("⚠️  Generated new JWT secret - all existing tokens are now invalid!");
+  console.warn("⚠️  Set JWT_SECRET in your .env file to prevent this on server restarts.");
   return newSecret;
 }
 
