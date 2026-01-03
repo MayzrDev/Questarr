@@ -8,3 +8,4 @@ vite.config.ts.*
 *.log
 .gemini/
 gha-creds-*.json
+images/Screenshots/*
