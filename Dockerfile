@@ -34,4 +34,4 @@ COPY --from=builder /app/package.json ./
 
 EXPOSE ${PORT:-5000}
 
-CMD ["npm", "run", "start"]
+CMD ["sh", "-c", "npm run db:push && npm run start"]
