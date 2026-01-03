@@ -38,9 +38,11 @@ import { insertDownloaderSchema, type Downloader, type InsertDownloader } from "
 import { useToast } from "@/hooks/use-toast";
 
 const downloaderTypes = [
-  { value: "transmission", label: "Transmission" },
-  { value: "rtorrent", label: "rTorrent" },
-  { value: "qbittorrent", label: "qBittorrent" },
+  { value: "transmission", label: "Transmission", protocol: "torrent" },
+  { value: "rtorrent", label: "rTorrent", protocol: "torrent" },
+  { value: "qbittorrent", label: "qBittorrent", protocol: "torrent" },
+  { value: "sabnzbd", label: "SABnzbd", protocol: "usenet" },
+  { value: "nzbget", label: "NZBGet", protocol: "usenet" },
 ] as const;
 
 export default function DownloadersPage() {
@@ -296,8 +298,9 @@ export default function DownloadersPage() {
         <div>
           <h1 className="text-3xl font-bold">Downloaders</h1>
           <p className="text-muted-foreground">
-            Manage torrent clients for automated downloads. Downloads are sent to enabled clients in
-            priority order (lowest number first), with automatic fallback if a client fails.
+            Manage torrent and Usenet clients for automated downloads. Downloads are sent to
+            enabled clients in priority order (lowest number first), with automatic fallback if a
+            client fails.
           </p>
         </div>
         <Button onClick={handleAdd} data-testid="button-add-downloader">
@@ -316,6 +319,14 @@ export default function DownloadersPage() {
                     <CardTitle className="text-lg">{downloader.name}</CardTitle>
                     <Badge variant="outline" className="capitalize">
                       {downloader.type}
+                    </Badge>
+                    <Badge
+                      variant={
+                        ["sabnzbd", "nzbget"].includes(downloader.type) ? "secondary" : "default"
+                      }
+                      className="text-xs"
+                    >
+                      {["sabnzbd", "nzbget"].includes(downloader.type) ? "USENET" : "TORRENT"}
                     </Badge>
                     <Badge
                       variant={downloader.enabled ? "default" : "secondary"}
@@ -404,7 +415,7 @@ export default function DownloadersPage() {
           <DialogHeader>
             <DialogTitle>{editingDownloader ? "Edit Downloader" : "Add Downloader"}</DialogTitle>
             <DialogDescription>
-              Configure a torrent client for automated game downloads.
+              Configure a torrent or Usenet client for automated game downloads.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -473,7 +484,9 @@ export default function DownloadersPage() {
                                   ? "localhost or 192.168.1.100"
                                   : form.watch("type") === "sabnzbd"
                                     ? "http://localhost:8080"
-                                    : "http://localhost:6789"
+                                    : form.watch("type") === "nzbget"
+                                      ? "http://localhost:6789"
+                                      : "http://localhost:9091/transmission/rpc"
                           }
                           {...field}
                           data-testid="input-downloader-url"
@@ -584,12 +597,21 @@ export default function DownloadersPage() {
                       </FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Enter username"
+                          placeholder={
+                            form.watch("type") === "sabnzbd"
+                              ? "Enter SABnzbd API key"
+                              : "Enter username"
+                          }
                           {...field}
                           value={field.value || ""}
                           data-testid="input-downloader-username"
                         />
                       </FormControl>
+                      {form.watch("type") === "sabnzbd" && (
+                        <FormDescription className="text-xs">
+                          Found in SABnzbd Config → General → API Key
+                        </FormDescription>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -652,7 +674,7 @@ export default function DownloadersPage() {
                           ? "Adding a category avoids conflicts with unrelated downloads"
                           : form.watch("type") === "transmission"
                             ? "Creates a subdirectory in the output directory. Label for torrents in downloader"
-                            : isUsenetDownloader(form.watch("type"))
+                            : form.watch("type") === "sabnzbd" || form.watch("type") === "nzbget"
                               ? "Category for NZBs in downloader"
                               : "Label for torrents in downloader"}
                       </FormDescription>

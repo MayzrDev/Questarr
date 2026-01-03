@@ -32,7 +32,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Download, Loader2, FileDown, PackagePlus, SlidersHorizontal } from "lucide-react";
+import {
+  Download,
+  Loader2,
+  FileDown,
+  PackagePlus,
+  SlidersHorizontal,
+  Newspaper,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { type Game } from "@shared/schema";
 import { groupTorrentsByCategory, type TorrentCategory } from "@/lib/torrent-categorizer";
@@ -50,6 +57,11 @@ interface TorrentItem {
   uploadVolumeFactor?: number;
   guid?: string;
   comments?: string;
+  // Usenet-specific fields
+  grabs?: number;
+  age?: number;
+  poster?: string;
+  group?: string;
 }
 
 interface SearchResult {
@@ -79,6 +91,16 @@ function formatDate(dateString: string): string {
   } catch {
     return dateString;
   }
+}
+
+function formatAge(days: number): string {
+  if (days < 1) return "< 1 day";
+  if (days === 1) return "1 day";
+  return `${Math.floor(days)} days`;
+}
+
+function isUsenetItem(item: TorrentItem): boolean {
+  return (item.grabs !== undefined || item.age !== undefined) && item.seeders === undefined;
 }
 
 import { apiRequest } from "@/lib/queryClient";
@@ -557,24 +579,64 @@ export default function GameDownloadDialog({ game, open, onOpenChange }: GameDow
                             className="p-2 text-sm flex justify-between items-center hover:bg-muted/30 transition-colors gap-4"
                           >
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate" title={torrent.title}>
-                                {torrent.title}
+                              <div className="flex items-center gap-2">
+                                <div className="font-medium truncate flex-1" title={torrent.title}>
+                                  {torrent.title}
+                                </div>
+                                <Badge
+                                  variant={isUsenetItem(torrent) ? "secondary" : "default"}
+                                  className="text-xs flex-shrink-0"
+                                >
+                                  {isUsenetItem(torrent) ? (
+                                    <>
+                                      <Newspaper className="h-3 w-3 mr-1" />
+                                      NZB
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Download className="h-3 w-3 mr-1" />
+                                      TORRENT
+                                    </>
+                                  )}
+                                </Badge>
                               </div>
                               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                                 <span>{formatDate(torrent.pubDate)}</span>
                                 <span>•</span>
                                 <span>{torrent.size ? formatBytes(torrent.size) : "-"}</span>
                                 <span>•</span>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-green-600 font-medium">
-                                    {torrent.seeders ?? 0}
-                                  </span>
-                                  <span>/</span>
-                                  <span className="text-red-600 font-medium">
-                                    {torrent.leechers ?? 0}
-                                  </span>
-                                  <span>peers</span>
-                                </div>
+                                {isUsenetItem(torrent) ? (
+                                  <>
+                                    {torrent.grabs !== undefined && (
+                                      <>
+                                        <span className="text-blue-600 font-medium">
+                                          {torrent.grabs}
+                                        </span>
+                                        <span>grabs</span>
+                                        {torrent.age !== undefined && <span>•</span>}
+                                      </>
+                                    )}
+                                    {torrent.age !== undefined && (
+                                      <>
+                                        <span className="text-purple-600 font-medium">
+                                          {formatAge(torrent.age)}
+                                        </span>
+                                        <span>old</span>
+                                      </>
+                                    )}
+                                  </>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-green-600 font-medium">
+                                      {torrent.seeders ?? 0}
+                                    </span>
+                                    <span>/</span>
+                                    <span className="text-red-600 font-medium">
+                                      {torrent.leechers ?? 0}
+                                    </span>
+                                    <span>peers</span>
+                                  </div>
+                                )}
                                 {torrent.description && (
                                   <>
                                     <span>•</span>

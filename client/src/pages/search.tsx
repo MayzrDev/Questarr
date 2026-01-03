@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { queryClient } from "@/lib/queryClient";
-import { Search, Download } from "lucide-react";
+import { Search, Download, Newspaper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +48,11 @@ interface TorrentItem {
   uploadVolumeFactor?: number;
   guid?: string;
   comments?: string;
+  // Usenet-specific fields
+  grabs?: number;
+  age?: number;
+  poster?: string;
+  group?: string;
 }
 
 interface SearchResult {
@@ -87,6 +92,17 @@ function formatDate(dateString: string): string {
   } catch {
     return dateString;
   }
+}
+
+function formatAge(days: number): string {
+  if (days < 1) return "< 1 day";
+  if (days === 1) return "1 day";
+  return `${Math.floor(days)} days`;
+}
+
+function isUsenetItem(item: TorrentItem): boolean {
+  // Usenet items have grabs/age but not seeders/leechers
+  return (item.grabs !== undefined || item.age !== undefined) && item.seeders === undefined;
 }
 
 export default function SearchPage() {
@@ -330,20 +346,58 @@ export default function SearchPage() {
                   data-testid={`card-torrent-${index}`}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate mb-1" title={torrent.title}>
-                      {torrent.title}
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="font-medium truncate flex-1" title={torrent.title}>
+                        {torrent.title}
+                      </div>
+                      <Badge
+                        variant={isUsenetItem(torrent) ? "secondary" : "default"}
+                        className="text-xs flex-shrink-0"
+                      >
+                        {isUsenetItem(torrent) ? (
+                          <>
+                            <Newspaper className="h-3 w-3 mr-1" />
+                            USENET
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-3 w-3 mr-1" />
+                            TORRENT
+                          </>
+                        )}
+                      </Badge>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>{formatDate(torrent.pubDate)}</span>
                       <span>•</span>
                       <span>{torrent.size ? formatBytes(torrent.size) : "-"}</span>
                       <span>•</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-green-600 font-medium">{torrent.seeders ?? 0}</span>
-                        <span>/</span>
-                        <span className="text-red-600 font-medium">{torrent.leechers ?? 0}</span>
-                        <span>peers</span>
-                      </div>
+                      {isUsenetItem(torrent) ? (
+                        <>
+                          {torrent.grabs !== undefined && (
+                            <>
+                              <span className="text-blue-600 font-medium">{torrent.grabs}</span>
+                              <span>grabs</span>
+                              {torrent.age !== undefined && <span>•</span>}
+                            </>
+                          )}
+                          {torrent.age !== undefined && (
+                            <>
+                              <span className="text-purple-600 font-medium">
+                                {formatAge(torrent.age)}
+                              </span>
+                              <span>old</span>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <span className="text-green-600 font-medium">{torrent.seeders ?? 0}</span>
+                          <span>/</span>
+                          <span className="text-red-600 font-medium">{torrent.leechers ?? 0}</span>
+                          <span>peers</span>
+                        </div>
+                      )}
                       {torrent.description && (
                         <>
                           <span>•</span>
