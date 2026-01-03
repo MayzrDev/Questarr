@@ -47,11 +47,6 @@ cp .env.example .env
 IGDB_CLIENT_ID=your_client_id_here
 IGDB_CLIENT_SECRET=your_client_secret_here
 
-# Required: Secure JWT secret for authentication (generate a random string)
-# IMPORTANT: Set this to prevent token invalidation on restart
-# If not set, a random secret will be generated and stored in the database.
-# JWT_SECRET=your-secure-random-string-at-least-32-characters-long
-
 # Optional: Server configuration
 PORT=5000
 HOST=0.0.0.0
@@ -64,18 +59,7 @@ SESSION_SECRET=your-session-secret-here
 DATABASE_URL=postgresql://postgres:password@db:5432/questarr
 ```
 
-**⚠️ Security Warning:** Always set `JWT_SECRET` to a secure random string. Without it, all user sessions will be invalidated on server restart.
-
-Generate a secure secret with:
-```bash
-# Linux/macOS
-openssl rand -hex 32
-
-# Windows (PowerShell)
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-4. **Build and start the containers:**
+1. **Build and start the containers:**
 ```bash
 docker-compose up -d
 ```
@@ -133,7 +117,6 @@ npm install
 DATABASE_URL=postgresql://user:password@localhost:5432/questarr
 IGDB_CLIENT_ID=your_client_id
 IGDB_CLIENT_SECRET=your_client_secret
-JWT_SECRET=your-secure-random-string
 PORT=5000
 ```
 
@@ -239,10 +222,6 @@ Configure app behavior in Settings → General:
 ## Troubleshooting
 
 ### Common Issues
-
-**"Invalid or expired token" after server restart**
-- **Cause**: JWT_SECRET not set in `.env`
-- **Solution**: Add a permanent JWT_SECRET to your `.env` file (see Installation section)
 
 **No games showing up**
 - **Cause**: Missing IGDB credentials or invalid API keys
