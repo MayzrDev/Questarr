@@ -12,9 +12,17 @@ import {
   shouldShowRatioBadge,
   shouldShowSizeBadge,
   shouldShowPeersBadge,
+  shouldShowTorrentMetrics,
+  shouldShowUsenetMetrics,
+  shouldShowRepairStatus,
+  shouldShowUnpackStatus,
+  formatRepairStatus,
+  formatUnpackStatus,
+  formatAge,
   type DownloadStatusType,
+  type DownloadType,
 } from "@/lib/downloads-utils";
-import { Play, Pause, Trash2, MoreHorizontal, RefreshCw, Info } from "lucide-react";
+import { Play, Pause, Trash2, MoreHorizontal, RefreshCw, Info, Download, Newspaper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +53,12 @@ interface DownloadStatus {
   error?: string;
   downloaderId: string;
   downloaderName: string;
+  // Download type and Usenet-specific fields
+  downloadType?: DownloadType;
+  repairStatus?: string;
+  unpackStatus?: string;
+  age?: number;
+  grabs?: number;
 }
 
 interface DownloaderError {
@@ -335,6 +349,24 @@ export default function Downloads() {
                         >
                           {download.downloaderName}
                         </Badge>
+                        {/* Download Type Badge */}
+                        <Badge
+                          variant={download.downloadType === "usenet" ? "secondary" : "default"}
+                          className="text-xs"
+                          data-testid={`badge-type-${download.id}`}
+                        >
+                          {download.downloadType === "usenet" ? (
+                            <>
+                              <Newspaper className="h-3 w-3 mr-1" />
+                              USENET
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-3 w-3 mr-1" />
+                              TORRENT
+                            </>
+                          )}
+                        </Badge>
                         {shouldShowSizeBadge(download.size) && (
                           <Badge
                             variant="outline"
@@ -342,6 +374,26 @@ export default function Downloads() {
                             aria-label={`Downloaded ${formatBytes(download.downloaded || 0)} of ${formatBytes(download.size!)}`}
                           >
                             {formatBytes(download.downloaded || 0)} / {formatBytes(download.size!)}
+                          </Badge>
+                        )}
+                        {/* Usenet-specific: Repair Status */}
+                        {shouldShowRepairStatus(download.repairStatus) && (
+                          <Badge
+                            variant="outline"
+                            data-testid={`badge-repair-${download.id}`}
+                            aria-label={`Repair: ${formatRepairStatus(download.repairStatus!)}`}
+                          >
+                            Repair: {formatRepairStatus(download.repairStatus!)}
+                          </Badge>
+                        )}
+                        {/* Usenet-specific: Unpack Status */}
+                        {shouldShowUnpackStatus(download.unpackStatus) && (
+                          <Badge
+                            variant="outline"
+                            data-testid={`badge-unpack-${download.id}`}
+                            aria-label={`Unpack: ${formatUnpackStatus(download.unpackStatus!)}`}
+                          >
+                            Unpack: {formatUnpackStatus(download.unpackStatus!)}
                           </Badge>
                         )}
                         {shouldShowSpeedBadge(download.downloadSpeed) && (
@@ -353,7 +405,7 @@ export default function Downloads() {
                             ↓ {formatSpeed(download.downloadSpeed!)}
                           </Badge>
                         )}
-                        {shouldShowSpeedBadge(download.uploadSpeed) && (
+                        {shouldShowSpeedBadge(download.uploadSpeed) && shouldShowTorrentMetrics(download) && (
                           <Badge
                             variant="outline"
                             data-testid={`badge-upload-speed-${download.id}`}
@@ -371,7 +423,8 @@ export default function Downloads() {
                             ETA: {formatETA(download.eta!)}
                           </Badge>
                         )}
-                        {shouldShowPeersBadge(download.seeders) && (
+                        {/* Torrent-specific: Peers */}
+                        {shouldShowPeersBadge(download.seeders) && shouldShowTorrentMetrics(download) && (
                           <Badge
                             variant="outline"
                             data-testid={`badge-peers-${download.id}`}
@@ -380,7 +433,27 @@ export default function Downloads() {
                             {download.seeders}↑ / {download.leechers || 0}↓
                           </Badge>
                         )}
-                        {shouldShowRatioBadge(download.ratio) && (
+                        {/* Usenet-specific: Age */}
+                        {download.age !== undefined && shouldShowUsenetMetrics(download) && (
+                          <Badge
+                            variant="outline"
+                            data-testid={`badge-age-${download.id}`}
+                            aria-label={`Age: ${formatAge(download.age)}`}
+                          >
+                            Age: {formatAge(download.age)}
+                          </Badge>
+                        )}
+                        {/* Usenet-specific: Grabs */}
+                        {download.grabs !== undefined && shouldShowUsenetMetrics(download) && (
+                          <Badge
+                            variant="outline"
+                            data-testid={`badge-grabs-${download.id}`}
+                            aria-label={`${download.grabs} grabs`}
+                          >
+                            {download.grabs} grabs
+                          </Badge>
+                        )}
+                        {shouldShowRatioBadge(download.ratio) && shouldShowTorrentMetrics(download) && (
                           <Badge
                             variant="outline"
                             data-testid={`badge-ratio-${download.id}`}
