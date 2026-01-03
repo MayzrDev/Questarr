@@ -13,7 +13,6 @@ services:
       - DATABASE_URL=postgresql://postgres:password@db:5432/questarr
       - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
       - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET}
-      - SESSION_SECRET=${SESSION_SECRET:-change-this-in-production}
     env_file:
       - .env
     depends_on:
