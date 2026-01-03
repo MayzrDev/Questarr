@@ -8,6 +8,7 @@ import { config } from "./config.js";
 import { expressLogger } from "./logger.js";
 import { startCronJobs } from "./cron.js";
 import { setupSocketIO } from "./socket.js";
+import { ensureDatabase } from "./migrate.js";
 
 const app = express();
 app.use(express.json());
@@ -65,6 +66,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Ensure database is ready before starting server
+  await ensureDatabase();
+  
   const server = await registerRoutes(app);
   setupSocketIO(server);
 
