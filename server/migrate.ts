@@ -1,8 +1,5 @@
-import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { Pool } from "pg";
 import { logger } from "./logger.js";
-import { config } from "./config.js";
 import { db, pool } from "./db.js";
 import { sql } from "drizzle-orm";
 
@@ -13,7 +10,21 @@ export async function runMigrations(): Promise<void> {
   try {
     logger.info("Running database migrations...");
 
-    // Check if this is a fresh database or migrated from push
+    // First, check if tables already exist (migrated from push)
+    logger.info("Checking for existing tables (downloaders)...");
+    const downloadersTable = await db.execute(sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'downloaders'
+      );
+    `);
+
+    const hasExistingTables = downloadersTable.rows[0]?.exists;
+    logger.info(`Existing tables detected: ${hasExistingTables}`);
+
+    // Check if migrations table exists
+    logger.info("Checking for __drizzle_migrations table...");
     const drizzleMigrationsTable = await db.execute(sql`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
@@ -23,24 +34,12 @@ export async function runMigrations(): Promise<void> {
     `);
 
     const hasMigrationsTable = drizzleMigrationsTable.rows[0]?.exists;
+    logger.info(`Migrations table exists: ${hasMigrationsTable}`);
 
-    if (!hasMigrationsTable) {
-      // Check if tables already exist (migrated from push)
-      const downloadersTable = await db.execute(sql`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'downloaders'
-        );
-      `);
-
-      const hasExistingTables = downloadersTable.rows[0]?.exists;
-
-      if (hasExistingTables) {
-        logger.info(
-          "Existing tables detected (migrated from drizzle-kit push). Creating migrations tracking table..."
-        );
-        // Create the migrations table and mark initial migration as applied
+    // If tables exist but no proper migration tracking, initialize it
+    if (hasExistingTables) {
+      if (!hasMigrationsTable) {
+        logger.info("Creating migrations tracking table for existing database...");
         await db.execute(sql`
           CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
             id SERIAL PRIMARY KEY,
@@ -48,17 +47,28 @@ export async function runMigrations(): Promise<void> {
             created_at bigint
           );
         `);
-        // Mark the initial migration as applied
+      }
+
+      // Check if initial migration is already marked as applied
+      const existingMigration = await db.execute(sql`
+        SELECT * FROM "__drizzle_migrations" 
+        WHERE hash = '0000_complex_synch'
+      `);
+
+      if (existingMigration.rows.length === 0) {
+        logger.info("Marking initial migration as applied for existing database...");
         await db.execute(sql`
           INSERT INTO "__drizzle_migrations" (hash, created_at)
-          VALUES ('0000_complex_synch', ${Date.now()})
-          ON CONFLICT DO NOTHING;
+          VALUES ('0000_complex_synch', ${Date.now()});
         `);
-        logger.info("Migration tracking initialized for existing database");
-        return;
       }
+
+      logger.info("Migration tracking initialized for existing database");
+      return;
     }
 
+    // Fresh database - run migrations normally
+    logger.info("Running fresh migrations...");
     await migrate(db, { migrationsFolder: "./migrations" });
     logger.info("Database migrations completed successfully");
   } catch (error) {
