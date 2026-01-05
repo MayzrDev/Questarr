@@ -72,11 +72,11 @@ export class ProwlarrClient {
       );
 
       torznabLogger.info(
-        { 
+        {
           count: compatibleIndexers.length,
-          torrent: compatibleIndexers.filter(i => i.protocol === "torrent").length,
-          usenet: compatibleIndexers.filter(i => i.protocol === "usenet").length
-        }, 
+          torrent: compatibleIndexers.filter((i) => i.protocol === "torrent").length,
+          usenet: compatibleIndexers.filter((i) => i.protocol === "usenet").length,
+        },
         "Filtered compatible Torznab and Newznab indexers"
       );
 
@@ -85,7 +85,7 @@ export class ProwlarrClient {
         // Prowlarr exposes Torznab feed at /<indexerId>/api for torrents
         // and Newznab feed at /<indexerId>/api for usenet
         const indexerUrl = `${baseUrl}/${idx.id}/api`;
-        
+
         // Determine protocol: torrent -> torznab, usenet -> newznab
         const protocol = idx.protocol === "usenet" ? "newznab" : "torznab";
 
