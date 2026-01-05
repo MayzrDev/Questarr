@@ -1,12 +1,13 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Info, Star, Calendar, Eye, EyeOff } from "lucide-react";
+import { Download, Info, Star, Calendar, Eye, EyeOff, PackageCheck } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import StatusBadge, { type GameStatus } from "./StatusBadge";
 import { type Game } from "@shared/schema";
 import { useState, memo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import GameDetailsModal from "./GameDetailsModal";
 import GameDownloadDialog from "./GameDownloadDialog";
 
@@ -60,6 +61,21 @@ const GameCard = ({
   const [downloadOpen, setDownloadOpen] = useState(false);
   const releaseStatus = getReleaseStatus(game);
 
+  // Check for torrent availability for wanted games
+  const { data: searchResults } = useQuery({
+    queryKey: ["/api/search", game.title],
+    queryFn: async () => {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(game.title)}&limit=1`);
+      if (!response.ok) return null;
+      return response.json();
+    },
+    enabled: !isDiscovery && game.status === "wanted" && !!game.title,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  const hasTorrentsAvailable = searchResults?.items && searchResults.items.length > 0;
+
   const handleStatusClick = () => {
     console.warn(`Status change triggered for game: ${game.title}`);
     const nextStatus: GameStatus =
@@ -99,6 +115,21 @@ const GameCard = ({
         />
         <div className="absolute top-2 right-2 flex flex-col gap-1">
           {!isDiscovery && game.status && <StatusBadge status={game.status} />}
+          {game.status === "wanted" && hasTorrentsAvailable && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="default"
+                  className="text-xs bg-emerald-600 hover:bg-emerald-700 border-emerald-700 p-1 h-6 w-6 flex items-center justify-center cursor-help"
+                >
+                  <PackageCheck className="w-3 h-3" />
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Downloads Available</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           {game.status === "wanted" && (
             <Badge
               variant={releaseStatus.variant}
