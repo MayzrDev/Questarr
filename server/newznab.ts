@@ -8,18 +8,6 @@ const parser = new XMLParser({
   attributeNamePrefix: "@_",
 });
 
-/**
- * Format bytes to human-readable string with dynamic units
- */
-function formatBytes(bytes: number, decimals = 2): string {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-}
-
 export interface NewznabSearchParams {
   query: string;
   category?: string[];
@@ -30,7 +18,7 @@ export interface NewznabSearchParams {
 export interface NewznabResult {
   title: string;
   link: string; // NZB download URL
-  size: string;
+  size?: number;
   publishDate: string;
   indexerId: string;
   indexerName: string;
@@ -67,7 +55,10 @@ class NewznabClient {
       }
 
       const url = new URL(indexer.url);
-      url.pathname = url.pathname.endsWith("/") ? `${url.pathname}api` : `${url.pathname}/api`;
+      // Don't modify pathname if it already contains 'api'
+      if (!url.pathname.includes("/api")) {
+        url.pathname = url.pathname.endsWith("/") ? `${url.pathname}api` : `${url.pathname}/api`;
+      }
 
       // Build Newznab search parameters
       url.searchParams.set("apikey", indexer.apiKey);
@@ -89,7 +80,10 @@ class NewznabClient {
       // Extended attributes for more metadata
       url.searchParams.set("extended", "1");
 
-      routesLogger.debug({ indexer: indexer.name, url: url.toString() }, "searching newznab indexer");
+      routesLogger.debug(
+        { indexer: indexer.name, url: url.toString() },
+        "searching newznab indexer"
+      );
 
       const response = await fetch(url.toString(), {
         headers: {
@@ -129,7 +123,7 @@ class NewznabClient {
           // Get size - try multiple sources
           const sizeBytes = attrMap.get("size") || item.enclosure?.["@_length"];
           const sizeBytesNum = sizeBytes ? parseInt(sizeBytes, 10) : NaN;
-          const size = !isNaN(sizeBytesNum) ? formatBytes(sizeBytesNum) : "Unknown";
+          const size = !isNaN(sizeBytesNum) ? sizeBytesNum : undefined;
 
           // Calculate age in days
           const pubDate = new Date(item.pubDate || Date.now());
@@ -171,12 +165,23 @@ class NewznabClient {
         }
       }
 
-      routesLogger.debug({ indexer: indexer.name, count: results.length }, "newznab search results");
+      routesLogger.debug(
+        { indexer: indexer.name, count: results.length },
+        "newznab search results"
+      );
 
       return results;
     } catch (error) {
-      routesLogger.error({ indexer: indexer.name, error }, "newznab search error");
-      throw new Error(`Newznab search failed for ${indexer.name}: ${error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorDetails = {
+        indexer: indexer.name,
+        indexerUrl: indexer.url,
+        error: errorMessage,
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        stack: error instanceof Error ? error.stack : undefined,
+      };
+      routesLogger.error(errorDetails, "newznab search error");
+      throw new Error(`Newznab search failed for ${indexer.name}: ${errorMessage}`);
     }
   }
 
