@@ -2730,7 +2730,11 @@ class SABnzbdClient implements DownloaderClient {
       }
 
       // Check for specific duplicate error
-      if (data.error && typeof data.error === "string" && data.error.toLowerCase().includes("duplicate")) {
+      if (
+        data.error &&
+        typeof data.error === "string" &&
+        data.error.toLowerCase().includes("duplicate")
+      ) {
         return {
           success: true,
           message: `NZB already exists: ${data.error}`,
