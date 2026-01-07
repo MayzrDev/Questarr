@@ -1756,6 +1756,7 @@ class RTorrentClient implements DownloaderClient {
 class QBittorrentClient implements DownloaderClient {
   private downloader: Downloader;
   private cookie: string | null = null;
+  private httpsAgent: any = null; // Cache for HTTPS agent to avoid repeated imports
 
   // Maximum ETA value to consider valid (100 days in seconds)
   // qBittorrent returns very large values when ETA is essentially infinite
@@ -2266,6 +2267,7 @@ class QBittorrentClient implements DownloaderClient {
       }
 
       // Extract session cookie - store only name=value, strip attributes
+      // Note: qBittorrent uses "SID" as the standard session cookie name
       const setCookie = response.headers.get("set-cookie");
       if (setCookie) {
         // Extract cookie name=value before first semicolon
@@ -2365,16 +2367,18 @@ class QBittorrentClient implements DownloaderClient {
     // In browser/edge runtimes, this won't work and users should use NODE_TLS_REJECT_UNAUTHORIZED=0 instead
     if (this.downloader.skipTlsVerify && this.downloader.useSsl) {
       try {
-        // Dynamically import https to avoid issues in non-Node environments
-        const https = await import("https");
+        // Create and cache HTTPS agent to avoid repeated imports
+        if (!this.httpsAgent) {
+          const https = await import("https");
+          this.httpsAgent = new https.Agent({
+            rejectUnauthorized: false,
+          });
+          downloadersLogger.debug(
+            "Created and cached custom HTTPS agent with rejectUnauthorized=false (skipTlsVerify enabled)"
+          );
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (fetchOptions as any).agent = new https.Agent({
-          rejectUnauthorized: false,
-        });
-        downloadersLogger.debug(
-          { url },
-          "Using custom HTTPS agent with rejectUnauthorized=false (skipTlsVerify enabled)"
-        );
+        (fetchOptions as any).agent = this.httpsAgent;
       } catch (error) {
         downloadersLogger.warn(
           { error },
