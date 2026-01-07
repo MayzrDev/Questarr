@@ -220,6 +220,7 @@ export default function DownloadersPage() {
       url: "",
       port: undefined,
       useSsl: false,
+      skipTlsVerify: false,
       urlPath: "",
       username: "",
       password: "",
@@ -250,6 +251,7 @@ export default function DownloadersPage() {
       url: downloader.url,
       port: downloader.port ?? undefined,
       useSsl: downloader.useSsl ?? false,
+      skipTlsVerify: downloader.skipTlsVerify ?? false,
       urlPath: downloader.urlPath ?? "",
       username: downloader.username ?? "",
       password: downloader.password ?? "",
@@ -273,6 +275,7 @@ export default function DownloadersPage() {
       url: "",
       port: undefined,
       useSsl: false,
+      skipTlsVerify: false,
       urlPath: "",
       username: "",
       password: "",
@@ -547,29 +550,54 @@ export default function DownloadersPage() {
                       )}
                     />
                     {form.watch("type") !== "transmission" && (
-                      <FormField
-                        control={form.control}
-                        name="useSsl"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2">
-                            <div className="space-y-0">
-                              <FormLabel className="text-sm">Use SSL</FormLabel>
-                              <FormDescription className="text-xs">
-                                {form.watch("type") === "qbittorrent"
-                                  ? "See Options -> Web UI -> 'Use HTTPS instead of HTTP' in qBittorrent"
-                                  : "Enable HTTPS"}
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Checkbox
-                                checked={!!field.value}
-                                onCheckedChange={field.onChange}
-                                data-testid="checkbox-downloader-usessl"
-                              />
-                            </FormControl>
-                          </FormItem>
+                      <>
+                        <FormField
+                          control={form.control}
+                          name="useSsl"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2">
+                              <div className="space-y-0">
+                                <FormLabel className="text-sm">Use SSL</FormLabel>
+                                <FormDescription className="text-xs">
+                                  {form.watch("type") === "qbittorrent"
+                                    ? "See Options -> Web UI -> 'Use HTTPS instead of HTTP' in qBittorrent"
+                                    : "Enable HTTPS"}
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Checkbox
+                                  checked={!!field.value}
+                                  onCheckedChange={field.onChange}
+                                  data-testid="checkbox-downloader-usessl"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        {form.watch("useSsl") && (
+                          <FormField
+                            control={form.control}
+                            name="skipTlsVerify"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2 border-amber-500/50 bg-amber-500/5">
+                                <div className="space-y-0">
+                                  <FormLabel className="text-sm">Skip TLS Verify</FormLabel>
+                                  <FormDescription className="text-xs">
+                                    ⚠️ Skip certificate validation for self-signed certificates (internal use only)
+                                  </FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Checkbox
+                                    checked={!!field.value}
+                                    onCheckedChange={field.onChange}
+                                    data-testid="checkbox-downloader-skiptlsverify"
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
                         )}
-                      />
+                      </>
                     )}
                   </>
                 )}
@@ -789,27 +817,52 @@ export default function DownloadersPage() {
                   <div className="space-y-2 rounded-lg border p-3 bg-muted/30">
                     <h3 className="text-sm font-semibold mb-2">Advanced Settings</h3>
                     {form.watch("type") === "transmission" && (
-                      <FormField
-                        control={form.control}
-                        name="useSsl"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2 bg-background">
-                            <div className="space-y-0">
-                              <FormLabel className="text-sm">Use SSL</FormLabel>
-                              <FormDescription className="text-xs">
-                                Enable HTTPS (see Settings → Web in Transmission)
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Checkbox
-                                checked={!!field.value}
-                                onCheckedChange={field.onChange}
-                                data-testid="checkbox-downloader-usessl"
-                              />
-                            </FormControl>
-                          </FormItem>
+                      <>
+                        <FormField
+                          control={form.control}
+                          name="useSsl"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2 bg-background">
+                              <div className="space-y-0">
+                                <FormLabel className="text-sm">Use SSL</FormLabel>
+                                <FormDescription className="text-xs">
+                                  Enable HTTPS (see Settings → Web in Transmission)
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Checkbox
+                                  checked={!!field.value}
+                                  onCheckedChange={field.onChange}
+                                  data-testid="checkbox-downloader-usessl"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        {form.watch("useSsl") && (
+                          <FormField
+                            control={form.control}
+                            name="skipTlsVerify"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2 bg-background border-amber-500/50">
+                                <div className="space-y-0">
+                                  <FormLabel className="text-sm">Skip TLS Verify</FormLabel>
+                                  <FormDescription className="text-xs">
+                                    ⚠️ Skip certificate validation for self-signed certificates (internal use only)
+                                  </FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Checkbox
+                                    checked={!!field.value}
+                                    onCheckedChange={field.onChange}
+                                    data-testid="checkbox-downloader-skiptlsverify"
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
                         )}
-                      />
+                      </>
                     )}
                     {form.watch("type") === "rtorrent" && (
                       <>
