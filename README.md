@@ -142,6 +142,82 @@ IGDB provides game metadata (covers, descriptions, ratings, release dates, etc.)
 7. Add them to your `.env` file
 
 
+## qBittorrent Behind VPN/Gluetun
+
+When running qBittorrent behind a VPN container (like gluetun) or with a self-signed HTTPS certificate, you may encounter authentication or connection issues. Questarr includes several features to address these scenarios:
+
+### Issues and Solutions
+
+**Problem 1: Session Expiration (HTTP 403)**
+- qBittorrent may return HTTP 403 when the session expires or authentication is required
+- **Solution**: Questarr automatically detects 403 responses, re-authenticates, and retries the request once
+
+**Problem 2: Self-Signed Certificates**
+- Internal HTTPS deployments often use self-signed certificates that fail TLS verification
+- **Solution**: Enable the `Skip TLS Verify` option in the downloader settings
+  - This is **opt-in only** and defaults to `false` for security
+  - Only use this for internal, trusted deployments
+
+**Problem 3: Cookie Parsing**
+- Some VPN/proxy setups modify cookie headers
+- **Solution**: Questarr now parses only the cookie name=value, stripping path/domain/other attributes
+
+**Problem 4: File Upload Format**
+- .torrent file uploads require proper multipart/form-data encoding
+- **Solution**: Questarr automatically uses multipart/form-data for .torrent files and application/x-www-form-urlencoded for magnet links
+
+### Testing Your Setup
+
+After configuring qBittorrent in Questarr, you can verify the connection from inside the Questarr container:
+
+```bash
+# Test authentication
+docker exec -it questarr curl -v \
+  -d "username=admin&password=yourpassword" \
+  http://qbittorrent:8080/api/v2/auth/login
+
+# Test version endpoint (should return version string)
+docker exec -it questarr curl -v \
+  -H "Cookie: SID=your_session_id_from_above" \
+  http://qbittorrent:8080/api/v2/app/version
+
+# For HTTPS with self-signed cert (add -k to skip verification)
+docker exec -it questarr curl -vk \
+  -d "username=admin&password=yourpassword" \
+  https://qbittorrent:8080/api/v2/auth/login
+```
+
+### Configuration Tips
+
+1. **URL**: Use the internal Docker network name (e.g., `qbittorrent` or `localhost`) if containers share a network
+2. **Port**: Default is 8080 for qBittorrent
+3. **Use SSL**: Enable if qBittorrent is configured with HTTPS
+4. **Skip TLS Verify**: Only enable for self-signed certificates in trusted internal deployments
+5. **Category**: Set to "games" or your preferred category to organize downloads
+
+### Docker Compose Example
+
+```yaml
+services:
+  questarr:
+    image: ghcr.io/doezer/questarr:latest
+    # ... other config ...
+    
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    network_mode: "service:gluetun"  # Behind VPN
+    # ... other config ...
+    
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    cap_add:
+      - NET_ADMIN
+    # ... VPN config ...
+```
+
+In this setup, configure Questarr to connect to `gluetun:8080` since qBittorrent's network is routed through gluetun.
+
+
 ## Troubleshooting
 See [Troubleshooting on the Wiki](https://github.com/Doezer/Questarr/wiki/Troubleshooting)
 
