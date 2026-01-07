@@ -145,6 +145,86 @@ IGDB provides game metadata (covers, descriptions, ratings, release dates, etc.)
 ## Troubleshooting
 See [Troubleshooting on the Wiki](https://github.com/Doezer/Questarr/wiki/Troubleshooting)
 
+### qBittorrent Behind VPN/gluetun
+
+If you're running qBittorrent behind a VPN container (like gluetun), you may need to configure additional settings:
+
+#### Skip TLS Verification (for self-signed certificates)
+
+When qBittorrent uses HTTPS with a self-signed certificate, enable the `Skip TLS Verify` option in the downloader settings:
+
+1. Go to **Settings > Downloaders**
+2. Edit your qBittorrent downloader
+3. Enable **Skip TLS Verify** checkbox
+4. Save the settings
+
+**Security Note**: Only use this option for internal/private networks with self-signed certificates. Never use it for public/internet-facing services.
+
+**Alternative**: If the `Skip TLS Verify` option doesn't work in your environment, you can set the environment variable:
+```bash
+NODE_TLS_REJECT_UNAUTHORIZED=0
+```
+This is a global setting and should only be used for testing.
+
+#### Network Configuration
+
+Questarr must be able to reach qBittorrent's network:
+
+**Option 1: Share network namespace** (Recommended)
+```yaml
+# docker-compose.yml
+services:
+  questarr:
+    network_mode: "container:gluetun"
+    # OR
+    network_mode: "service:gluetun"
+```
+
+**Option 2: Use Docker network**
+```yaml
+services:
+  gluetun:
+    networks:
+      - mynetwork
+  qbittorrent:
+    network_mode: "service:gluetun"
+  questarr:
+    networks:
+      - mynetwork
+networks:
+  mynetwork:
+```
+
+#### Testing Connectivity
+
+Test qBittorrent connectivity from within the Questarr container:
+
+```bash
+# Get a shell in the Questarr container
+docker exec -it questarr sh
+
+# Test HTTP connectivity
+curl -v http://qbittorrent:8080/api/v2/app/version
+
+# Test HTTPS connectivity (with self-signed cert)
+curl -k -v https://qbittorrent:8080/api/v2/app/version
+
+# Test authentication
+curl -v -X POST http://qbittorrent:8080/api/v2/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin&password=adminpass"
+
+# Look for Set-Cookie in the response headers
+```
+
+#### Common Issues
+
+**403 Forbidden errors**: Questarr automatically detects session expiration and re-authenticates. Check logs for re-authentication messages.
+
+**Connection refused**: Verify network configuration and that qBittorrent is accessible from Questarr's network namespace.
+
+**SSL/TLS errors**: Enable `Skip TLS Verify` option for self-signed certificates.
+
 ### Getting Help
 
 - **Issues**: [GitHub Issues](https://github.com/Doezer/Questarr/issues)
