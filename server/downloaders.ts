@@ -1760,9 +1760,47 @@ class QBittorrentClient implements DownloaderClient {
   // Maximum ETA value to consider valid (100 days in seconds)
   // qBittorrent returns very large values when ETA is essentially infinite
   private static readonly MAX_VALID_ETA_SECONDS = 8640000;
+  
+  // Regex to detect .torrent file URLs
+  private static readonly TORRENT_FILE_REGEX = /\.torrent(\?|$)/i;
 
   constructor(downloader: Downloader) {
     this.downloader = downloader;
+  }
+
+  /**
+   * Create an https.Agent that skips TLS verification if configured.
+   * Returns undefined if not using SSL/TLS skip or if the fetch implementation doesn't support agents.
+   */
+  private createHttpsAgentIfNeeded(): { agent?: unknown } {
+    if (!this.downloader.useSsl || !this.downloader.skipTlsVerify) {
+      return {};
+    }
+
+    try {
+      // Dynamic import to avoid issues if https module is not available
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const https = require("https");
+      
+      // Check if the agent can be set (some fetch implementations don't support it)
+      const agent = new https.Agent({
+        rejectUnauthorized: false,
+      });
+      
+      downloadersLogger.debug(
+        "Created https.Agent with rejectUnauthorized: false for qBittorrent request"
+      );
+      
+      // Return as a plain object that can be spread into fetch options
+      return { agent };
+    } catch (error) {
+      downloadersLogger.warn(
+        { error },
+        "Failed to create https.Agent - fetch implementation may not support it. " +
+        "Consider setting NODE_TLS_REJECT_UNAUTHORIZED=0 environment variable as fallback."
+      );
+      return {};
+    }
   }
 
   async testConnection(): Promise<{ success: boolean; message: string }> {
@@ -1808,7 +1846,7 @@ class QBittorrentClient implements DownloaderClient {
 
       // Check if this is a magnet link or URL
       const isMagnet = request.url.startsWith("magnet:");
-      const isTorrentFile = request.url.match(/\.torrent(\?|$)/i) && !isMagnet;
+      const isTorrentFile = QBittorrentClient.TORRENT_FILE_REGEX.test(request.url) && !isMagnet;
       
       let response: Response;
       let hash: string | null = null;
@@ -1872,7 +1910,8 @@ class QBittorrentClient implements DownloaderClient {
             "Uploading .torrent file to qBittorrent"
           );
 
-          // DO NOT set Content-Type header - FormData will set it with boundary
+          // DO NOT set Content-Type header manually - FormData automatically sets multipart/form-data 
+          // with the boundary parameter which is required for proper parsing by qBittorrent
           response = await this.makeRequest("POST", "/api/v2/torrents/add", formData as any);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -2429,30 +2468,8 @@ class QBittorrentClient implements DownloaderClient {
       headers,
       body: method !== "GET" ? body : undefined,
       signal: AbortSignal.timeout(30000),
+      ...this.createHttpsAgentIfNeeded(), // Spread agent if TLS skip is enabled
     };
-
-    // Add https.Agent if skip_tls_verify is enabled and using HTTPS
-    // Note: This works with Node.js fetch (undici). In browsers, this would be ignored.
-    if (this.downloader.useSsl && this.downloader.skipTlsVerify) {
-      try {
-        // Dynamic import to avoid issues if https module is not available
-        const https = await import("https");
-        // @ts-expect-error - agent property may not be in all fetch implementations
-        fetchOptions.agent = new https.Agent({
-          rejectUnauthorized: false,
-        });
-        downloadersLogger.debug(
-          { url },
-          "Using https.Agent with rejectUnauthorized: false for qBittorrent request"
-        );
-      } catch (error) {
-        downloadersLogger.warn(
-          { error },
-          "Failed to create https.Agent - fetch implementation may not support it. " +
-          "Consider setting NODE_TLS_REJECT_UNAUTHORIZED=0 environment variable as fallback."
-        );
-      }
-    }
 
     const response = await fetch(url, fetchOptions);
 
@@ -2484,20 +2501,8 @@ class QBittorrentClient implements DownloaderClient {
         headers: retryHeaders,
         body: method !== "GET" ? body : undefined,
         signal: AbortSignal.timeout(30000),
+        ...this.createHttpsAgentIfNeeded(), // Re-apply TLS skip if needed
       };
-
-      // Re-apply TLS skip if needed
-      if (this.downloader.useSsl && this.downloader.skipTlsVerify) {
-        try {
-          const https = await import("https");
-          // @ts-expect-error - agent property may not be in all fetch implementations
-          retryOptions.agent = new https.Agent({
-            rejectUnauthorized: false,
-          });
-        } catch {
-          // Ignore error on retry
-        }
-      }
 
       return fetch(url, retryOptions);
     }
