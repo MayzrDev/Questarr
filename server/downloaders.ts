@@ -1807,6 +1807,12 @@ class QBittorrentClient implements DownloaderClient {
       }
 
       // Build form data for adding torrent
+      // Note: For torrent file uploads (not URLs), use FormData with multipart/form-data:
+      //   const formData = new FormData();
+      //   formData.append("torrents", fileBlob, "filename.torrent");
+      //   formData.append("savepath", path);
+      //   // Then call makeRequest without Content-Type header (fetch will set it with boundary)
+      // Current implementation uses URL-based add which works for magnet links and accessible HTTP URLs
       const formData = new URLSearchParams();
       formData.append("urls", request.url);
 
@@ -2325,7 +2331,7 @@ class QBittorrentClient implements DownloaderClient {
   private async makeRequest(
     method: string,
     path: string,
-    body?: string,
+    body?: string | FormData,
     additionalHeaders?: Record<string, string>,
     _isRetry = false
   ): Promise<Response> {
@@ -2348,6 +2354,11 @@ class QBittorrentClient implements DownloaderClient {
       body: method !== "GET" ? body : undefined,
       signal: AbortSignal.timeout(30000),
     };
+
+    // When body is FormData, remove Content-Type header to let fetch set it with boundary
+    if (body instanceof FormData) {
+      delete headers["Content-Type"];
+    }
 
     // Add TLS-skip support if enabled (opt-in via downloader.skipTlsVerify)
     // Note: This requires Node.js environment and https module
