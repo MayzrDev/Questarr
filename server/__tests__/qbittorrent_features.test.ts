@@ -20,12 +20,20 @@ describe("QBittorrentClient - Advanced Features", () => {
       name: "QBittorrent",
       type: "qbittorrent",
       url: "http://localhost:8080",
+      port: null,
+      useSsl: false,
+      skipTlsVerify: false,
+      urlPath: null,
       username: "admin",
       password: "adminadmin",
       enabled: true,
       priority: 1,
       downloadPath: "/downloads",
       category: "games",
+      label: null,
+      addStopped: false,
+      removeCompleted: false,
+      postImportCategory: null,
       settings: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -37,6 +45,14 @@ describe("QBittorrentClient - Advanced Features", () => {
       status: 200,
       headers: new Headers([["set-cookie", "SID=abc; path=/"]]),
       text: async () => "Ok.",
+    };
+
+    // Mock torrent file download
+    const torrentFileResponse = {
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      arrayBuffer: async () => new ArrayBuffer(1024), // Fake torrent file
     };
 
     // Mock add torrent response (success)
@@ -63,7 +79,8 @@ describe("QBittorrentClient - Advanced Features", () => {
 
     fetchMock
       .mockResolvedValueOnce(loginResponse) // authenticate
-      .mockResolvedValueOnce(addResponse) // add torrent
+      .mockResolvedValueOnce(torrentFileResponse) // download .torrent file
+      .mockResolvedValueOnce(addResponse) // add torrent via multipart
       .mockResolvedValueOnce(torrentsInfoResponse); // check info
 
     const { DownloaderManager } = await import("../downloaders.js");
@@ -80,15 +97,21 @@ describe("QBittorrentClient - Advanced Features", () => {
       expect.anything()
     );
 
-    // Verify add torrent call
+    // Verify .torrent file download
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8080/api/v2/torrents/add",
+      "http://tracker.example.com/download/123.torrent",
       expect.objectContaining({
-        body: expect.stringContaining(
-          "urls=http%3A%2F%2Ftracker.example.com%2Fdownload%2F123.torrent"
-        ),
+        headers: expect.objectContaining({
+          "User-Agent": expect.stringContaining("Mozilla"),
+          "Accept": "application/x-bittorrent, */*",
+        }),
       })
     );
+
+    // Verify add torrent call uses multipart/form-data
+    const addTorrentCall = fetchMock.mock.calls[2]; // 3rd call
+    expect(addTorrentCall[0]).toContain("/api/v2/torrents/add");
+    expect(addTorrentCall[1].body).toBeInstanceOf(FormData);
 
     // Verify info call
     expect(fetchMock).toHaveBeenCalledWith(
@@ -106,12 +129,20 @@ describe("QBittorrentClient - Advanced Features", () => {
       name: "QBittorrent Force",
       type: "qbittorrent",
       url: "http://localhost:8080",
+      port: null,
+      useSsl: false,
+      skipTlsVerify: false,
+      urlPath: null,
       username: "admin",
       password: "adminadmin",
       enabled: true,
       priority: 1,
       downloadPath: "/downloads",
       category: "games",
+      label: null,
+      addStopped: false,
+      removeCompleted: false,
+      postImportCategory: null,
       settings: JSON.stringify({ initialState: "force-started" }),
       createdAt: new Date(),
       updatedAt: new Date(),
