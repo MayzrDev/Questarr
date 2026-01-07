@@ -1123,6 +1123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         removeCompleted: removeCompleted ?? false,
         postImportCategory: postImportCategory || null,
         settings: settings || null,
+        skipTlsVerify: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

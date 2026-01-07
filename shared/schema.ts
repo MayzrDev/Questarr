@@ -112,6 +112,7 @@ export const downloaders = pgTable("downloaders", {
   removeCompleted: boolean("remove_completed").default(false), // Remove torrents after completion
   postImportCategory: text("post_import_category"), // Category to set after download completes
   settings: text("settings"), // JSON string for additional client-specific settings
+  skipTlsVerify: boolean("skip_tls_verify").default(false), // Skip TLS certificate verification for self-signed certs
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -381,6 +381,7 @@ export class MemStorage implements IStorage {
       removeCompleted: insertDownloader.removeCompleted ?? false,
       postImportCategory: insertDownloader.postImportCategory ?? null,
       settings: insertDownloader.settings ?? null,
+      skipTlsVerify: insertDownloader.skipTlsVerify ?? false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

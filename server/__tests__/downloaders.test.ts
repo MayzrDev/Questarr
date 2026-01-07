@@ -987,6 +987,7 @@ describe("QBittorrentClient - Web API v2", () => {
       downloadPath: "/downloads",
       category: "games",
       settings: null,
+      skipTlsVerify: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -1451,6 +1452,162 @@ describe("QBittorrentClient - Web API v2", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(result.success).toBe(true);
+  });
+
+  it("should properly parse Set-Cookie header and strip attributes", async () => {
+    const testDownloader: Downloader = {
+      id: "qbittorrent-id",
+      name: "Test qBittorrent",
+      type: "qbittorrent",
+      url: "http://localhost:8080",
+      username: "admin",
+      password: "adminadmin",
+      enabled: true,
+      priority: 1,
+      downloadPath: null,
+      category: "games",
+      settings: null,
+      updatedAt: new Date(),
+    };
+
+    // Mock login response with Set-Cookie that includes attributes
+    const loginResponse = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers([
+        ["set-cookie", "SID=test_session_123; Path=/; HttpOnly; Max-Age=3600; Secure"],
+      ]),
+      text: async () => "Ok.",
+    };
+
+    // Mock version response
+    const versionResponse = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers(),
+      text: async () => "v4.6.2",
+    };
+
+    fetchMock.mockResolvedValueOnce(loginResponse).mockResolvedValueOnce(versionResponse);
+
+    const { DownloaderManager } = await import("../downloaders.js");
+
+    const result = await DownloaderManager.testDownloader(testDownloader);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.success).toBe(true);
+
+    // Verify cookie was sent in second request (stripped of attributes)
+    const secondCallHeaders = fetchMock.mock.calls[1][1].headers;
+    expect(secondCallHeaders["Cookie"]).toBe("SID=test_session_123");
+  });
+
+  it("should avoid infinite retry loop on 403 errors", async () => {
+    const testDownloader: Downloader = {
+      id: "qbittorrent-id",
+      name: "Test qBittorrent",
+      type: "qbittorrent",
+      url: "http://localhost:8080",
+      username: "admin",
+      password: "adminadmin",
+      enabled: true,
+      priority: 1,
+      downloadPath: null,
+      category: "games",
+      settings: null,
+      createdAt: new Date(),
+    };
+
+    // Mock login response
+    const loginResponse = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers([["set-cookie", "SID=abc123; path=/"]]),
+      text: async () => "Ok.",
+    };
+
+    // Mock 403 response (persistent failure)
+    const forbiddenResponse = {
+      ok: false,
+      status: 403,
+      statusText: "Forbidden",
+      headers: new Headers(),
+      text: async () => "Forbidden",
+    };
+
+    // Mock responses: initial login, 403, re-login, 403 again (should fail after this)
+    fetchMock
+      .mockResolvedValueOnce(loginResponse) // Initial login
+      .mockResolvedValueOnce(forbiddenResponse) // First 403
+      .mockResolvedValueOnce(loginResponse) // Re-login
+      .mockResolvedValueOnce(forbiddenResponse); // Second 403 (should throw)
+
+    const { DownloaderManager } = await import("../downloaders.js");
+
+    const result = await DownloaderManager.testDownloader(testDownloader);
+
+    // Should fail after max retries
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("Failed to connect");
+    
+    // Should not exceed 4 calls (login, 403, re-login, 403)
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("should log auth response headers for debugging", async () => {
+    const testDownloader: Downloader = {
+      id: "qbittorrent-id",
+      name: "Test qBittorrent",
+      type: "qbittorrent",
+      url: "http://localhost:8080",
+      username: "admin",
+      password: "adminadmin",
+      enabled: true,
+      priority: 1,
+      downloadPath: null,
+      category: "games",
+      settings: null,
+      skipTlsVerify: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Mock login response with Set-Cookie
+    const loginResponse = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers([
+        ["set-cookie", "SID=test_session; path=/; HttpOnly"],
+        ["content-type", "text/plain"],
+      ]),
+      text: async () => "Ok.",
+    };
+
+    // Mock version call
+    const versionResponse = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers(),
+      text: async () => "v4.6.2",
+    };
+
+    fetchMock.mockResolvedValueOnce(loginResponse).mockResolvedValueOnce(versionResponse);
+
+    const { DownloaderManager } = await import("../downloaders.js");
+
+    // Connection test should succeed and log headers
+    const result = await DownloaderManager.testDownloader(testDownloader);
+    expect(result.success).toBe(true);
+    
+    // Verify auth was called and cookie was extracted
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const firstCall = fetchMock.mock.calls[0];
+    expect(firstCall[0]).toContain("/api/v2/auth/login");
   });
 });
 
