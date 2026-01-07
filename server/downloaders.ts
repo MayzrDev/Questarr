@@ -2347,6 +2347,11 @@ class QBittorrentClient implements DownloaderClient {
       headers["Cookie"] = this.cookie;
     }
 
+    // When body is FormData, remove Content-Type header to let fetch set it with boundary
+    if (body instanceof FormData) {
+      delete headers["Content-Type"];
+    }
+
     // Prepare fetch options
     const fetchOptions: RequestInit = {
       method,
@@ -2355,11 +2360,6 @@ class QBittorrentClient implements DownloaderClient {
       signal: AbortSignal.timeout(30000),
     };
 
-    // When body is FormData, remove Content-Type header to let fetch set it with boundary
-    if (body instanceof FormData) {
-      delete headers["Content-Type"];
-    }
-
     // Add TLS-skip support if enabled (opt-in via downloader.skipTlsVerify)
     // Note: This requires Node.js environment and https module
     // In browser/edge runtimes, this won't work and users should use NODE_TLS_REJECT_UNAUTHORIZED=0 instead
@@ -2367,6 +2367,7 @@ class QBittorrentClient implements DownloaderClient {
       try {
         // Dynamically import https to avoid issues in non-Node environments
         const https = await import("https");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (fetchOptions as any).agent = new https.Agent({
           rejectUnauthorized: false,
         });
