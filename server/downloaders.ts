@@ -2396,12 +2396,8 @@ class QBittorrentClient implements DownloaderClient {
       this.cookie = null;
       await this.authenticate(true); // Force re-authentication
 
-      // Retry with new cookie (pass _isRetry=true to avoid infinite recursion)
-      if (this.cookie) {
-        headers["Cookie"] = this.cookie;
-      }
-
       // Recursively call makeRequest with retry flag to prevent infinite loop
+      // The new cookie will be included automatically when makeRequest rebuilds headers
       return this.makeRequest(method, path, body, additionalHeaders, true);
     }
 
