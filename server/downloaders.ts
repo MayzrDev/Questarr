@@ -1847,7 +1847,7 @@ class QBittorrentClient implements DownloaderClient {
 
       // Important: Do NOT set Content-Type header when using FormData
       // The runtime will automatically set it with the correct multipart boundary
-      const response = await this.makeRequest("POST", "/api/v2/torrents/add", formData as any);
+      const response = await this.makeRequest("POST", "/api/v2/torrents/add", formData);
 
       const responseText = await response.text();
       downloadersLogger.debug({ responseText }, "qBittorrent add response");
@@ -2371,8 +2371,9 @@ class QBittorrentClient implements DownloaderClient {
           rejectUnauthorized: false,
         });
         // Attach agent if supported by fetch implementation
-        // @ts-ignore - agent is not in standard fetch but supported by undici
-        fetchOptions.agent = agent;
+        // Note: agent is not part of standard fetch API but is supported by Node's undici
+        // Using type assertion with proper interface extension
+        (fetchOptions as RequestInit & { agent?: unknown }).agent = agent;
         downloadersLogger.debug(
           { url },
           "Using TLS skip (rejectUnauthorized: false) for qBittorrent request"
