@@ -574,29 +574,30 @@ export default function DownloadersPage() {
                             </FormItem>
                           )}
                         />
-                        {form.watch("useSsl") && (
-                          <FormField
-                            control={form.control}
-                            name="skipTlsVerify"
-                            render={({ field }) => (
-                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2 border-amber-500/50 bg-amber-500/5">
-                                <div className="space-y-0">
-                                  <FormLabel className="text-sm">Skip TLS Verify</FormLabel>
-                                  <FormDescription className="text-xs">
-                                    ⚠️ Skip certificate validation for self-signed certificates (internal use only)
-                                  </FormDescription>
-                                </div>
-                                <FormControl>
-                                  <Checkbox
-                                    checked={!!field.value}
-                                    onCheckedChange={field.onChange}
-                                    data-testid="checkbox-downloader-skiptlsverify"
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        )}
+                        <FormField
+                          control={form.control}
+                          name="skipTlsVerify"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2 border-amber-500/50 bg-amber-500/5">
+                              <div className="space-y-0">
+                                <FormLabel className={!form.watch("useSsl") ? "text-sm text-muted-foreground" : "text-sm"}>
+                                  Skip TLS Verify
+                                </FormLabel>
+                                <FormDescription className="text-xs">
+                                  ⚠️ Skip certificate validation for self-signed certificates (internal use only)
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Checkbox
+                                  checked={!!field.value}
+                                  onCheckedChange={field.onChange}
+                                  disabled={!form.watch("useSsl")}
+                                  data-testid="checkbox-downloader-skiptlsverify"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
                       </>
                     )}
                   </>
@@ -839,29 +840,30 @@ export default function DownloadersPage() {
                             </FormItem>
                           )}
                         />
-                        {form.watch("useSsl") && (
-                          <FormField
-                            control={form.control}
-                            name="skipTlsVerify"
-                            render={({ field }) => (
-                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2 bg-background border-amber-500/50">
-                                <div className="space-y-0">
-                                  <FormLabel className="text-sm">Skip TLS Verify</FormLabel>
-                                  <FormDescription className="text-xs">
-                                    ⚠️ Skip certificate validation for self-signed certificates (internal use only)
-                                  </FormDescription>
-                                </div>
-                                <FormControl>
-                                  <Checkbox
-                                    checked={!!field.value}
-                                    onCheckedChange={field.onChange}
-                                    data-testid="checkbox-downloader-skiptlsverify"
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        )}
+                        <FormField
+                          control={form.control}
+                          name="skipTlsVerify"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2 bg-background border-amber-500/50">
+                              <div className="space-y-0">
+                                <FormLabel className={!form.watch("useSsl") ? "text-sm text-muted-foreground" : "text-sm"}>
+                                  Skip TLS Verify
+                                </FormLabel>
+                                <FormDescription className="text-xs">
+                                  ⚠️ Skip certificate validation for self-signed certificates (internal use only)
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Checkbox
+                                  checked={!!field.value}
+                                  onCheckedChange={field.onChange}
+                                  disabled={!form.watch("useSsl")}
+                                  data-testid="checkbox-downloader-skiptlsverify"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
                       </>
                     )}
                     {form.watch("type") === "rtorrent" && (
