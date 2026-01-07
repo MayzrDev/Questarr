@@ -141,6 +141,47 @@ IGDB provides game metadata (covers, descriptions, ratings, release dates, etc.)
 6. Copy your **Client ID** and **Client Secret**
 7. Add them to your `.env` file
 
+### qBittorrent Behind VPN/Proxy (e.g., gluetun)
+
+If your qBittorrent instance is running behind a VPN container (like gluetun) or uses self-signed SSL certificates, you may need to configure additional options:
+
+#### Skip TLS Verification (Self-Signed Certificates)
+
+For qBittorrent instances using self-signed SSL certificates, you can enable the `skip_tls_verify` option in the downloader settings:
+
+1. In the Questarr UI, go to Settings → Downloaders
+2. Edit your qBittorrent downloader
+3. Enable the "Skip TLS Verify" checkbox
+4. Save the settings
+
+**Security Warning**: This option disables SSL certificate verification, which reduces security. Only use this for internal networks with self-signed certificates you control. Never use this for public-facing or untrusted servers.
+
+**Alternative Method**: If the `skip_tls_verify` option doesn't work in your environment (e.g., non-Node.js runtimes), you can set the `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable in your Questarr container. However, this affects all HTTPS connections and is less secure.
+
+#### Testing qBittorrent Connectivity
+
+To validate that Questarr can reach your qBittorrent instance, you can run these curl commands from within the Questarr container:
+
+```bash
+# Test authentication (replace with your qBittorrent URL, username, and password)
+curl -i -X POST 'http://qbittorrent:8080/api/v2/auth/login' \
+  --data 'username=admin&password=adminpass'
+
+# Test API version (use cookie from login response)
+curl -X GET 'http://qbittorrent:8080/api/v2/app/version' \
+  -H 'Cookie: SID=your_session_id_here'
+
+# Test adding a torrent (with cookie)
+curl -X POST 'http://qbittorrent:8080/api/v2/torrents/add' \
+  -H 'Cookie: SID=your_session_id_here' \
+  --data 'urls=magnet:?xt=urn:btih:TEST'
+```
+
+If these commands work but Questarr still fails, check:
+- Network connectivity between containers (use `docker network ls` and `docker network inspect`)
+- qBittorrent logs for authentication errors
+- Questarr logs for detailed error messages
+
 
 ## Troubleshooting
 See [Troubleshooting on the Wiki](https://github.com/Doezer/Questarr/wiki/Troubleshooting)

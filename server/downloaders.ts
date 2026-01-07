@@ -2203,8 +2203,8 @@ class QBittorrentClient implements DownloaderClient {
     };
   }
 
-  private async authenticate(): Promise<void> {
-    if (this.cookie) {
+  private async authenticate(force = false): Promise<void> {
+    if (this.cookie && !force) {
       return; // Already authenticated
     }
 
@@ -2216,7 +2216,7 @@ class QBittorrentClient implements DownloaderClient {
     const url = this.getBaseUrl() + "/api/v2/auth/login";
 
     downloadersLogger.debug(
-      { url, username: this.downloader.username },
+      { url, username: this.downloader.username, force },
       "Attempting qBittorrent authentication"
     );
 
@@ -2235,24 +2235,41 @@ class QBittorrentClient implements DownloaderClient {
         signal: AbortSignal.timeout(30000),
       });
 
+      // Log response headers for debugging
+      downloadersLogger.debug(
+        {
+          status: response.status,
+          headers: Object.fromEntries(response.headers.entries()),
+        },
+        "qBittorrent auth response headers"
+      );
+
       if (!response.ok) {
         const errorText = await response.text().catch(() => "No error details available");
+        downloadersLogger.debug({ errorText }, "qBittorrent auth response body (error)");
         throw new Error(
           `Authentication failed: ${response.status} ${response.statusText} - ${errorText}`
         );
       }
 
       const responseText = await response.text();
+      downloadersLogger.debug({ responseText }, "qBittorrent auth response body");
+
       if (responseText !== "Ok.") {
         throw new Error("Authentication failed: Invalid credentials");
       }
 
-      // Extract session cookie
+      // Extract session cookie - store only name=value, strip attributes
       const setCookie = response.headers.get("set-cookie");
       if (setCookie) {
+        // Extract cookie name=value before first semicolon
         const match = setCookie.match(/SID=([^;]+)/);
         if (match) {
           this.cookie = `SID=${match[1]}`;
+          downloadersLogger.debug(
+            { cookie: this.cookie },
+            "Stored qBittorrent cookie (name=value only)"
+          );
         }
       }
 
@@ -2309,7 +2326,8 @@ class QBittorrentClient implements DownloaderClient {
     method: string,
     path: string,
     body?: string,
-    additionalHeaders?: Record<string, string>
+    additionalHeaders?: Record<string, string>,
+    _isRetry = false
   ): Promise<Response> {
     const url = this.getBaseUrl() + path;
 
@@ -2318,33 +2336,61 @@ class QBittorrentClient implements DownloaderClient {
       ...additionalHeaders,
     };
 
+    // Always include Cookie header when cookie is set
     if (this.cookie) {
       headers["Cookie"] = this.cookie;
     }
 
-    const response = await fetch(url, {
+    // Prepare fetch options
+    const fetchOptions: RequestInit = {
       method,
       headers,
       body: method !== "GET" ? body : undefined,
       signal: AbortSignal.timeout(30000),
-    });
+    };
 
-    if (response.status === 403) {
-      // Session expired, re-authenticate
+    // Add TLS-skip support if enabled (opt-in via downloader.skipTlsVerify)
+    // Note: This requires Node.js environment and https module
+    // In browser/edge runtimes, this won't work and users should use NODE_TLS_REJECT_UNAUTHORIZED=0 instead
+    if (this.downloader.skipTlsVerify && this.downloader.useSsl) {
+      try {
+        // Dynamically import https to avoid issues in non-Node environments
+        const https = await import("https");
+        (fetchOptions as any).agent = new https.Agent({
+          rejectUnauthorized: false,
+        });
+        downloadersLogger.debug(
+          { url },
+          "Using custom HTTPS agent with rejectUnauthorized=false (skipTlsVerify enabled)"
+        );
+      } catch (error) {
+        downloadersLogger.warn(
+          { error },
+          "Could not create HTTPS agent for TLS skip - ensure NODE_TLS_REJECT_UNAUTHORIZED=0 is set if needed"
+        );
+      }
+    }
+
+    const response = await fetch(url, fetchOptions);
+
+    // Handle 403 Forbidden - session expired, re-authenticate and retry once
+    if (response.status === 403 && !_isRetry) {
+      downloadersLogger.debug(
+        { url, path },
+        "Received 403 Forbidden from qBittorrent - re-authenticating and retrying"
+      );
+
+      // Session expired, clear cookie and re-authenticate
       this.cookie = null;
-      await this.authenticate();
+      await this.authenticate(true); // Force re-authentication
 
-      // Retry with new cookie
+      // Retry with new cookie (pass _isRetry=true to avoid infinite recursion)
       if (this.cookie) {
         headers["Cookie"] = this.cookie;
       }
 
-      return fetch(url, {
-        method,
-        headers,
-        body: method !== "GET" ? body : undefined,
-        signal: AbortSignal.timeout(30000),
-      });
+      // Recursively call makeRequest with retry flag to prevent infinite loop
+      return this.makeRequest(method, path, body, additionalHeaders, true);
     }
 
     if (!response.ok) {

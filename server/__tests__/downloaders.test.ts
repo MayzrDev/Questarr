@@ -1452,6 +1452,128 @@ describe("QBittorrentClient - Web API v2", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(result.success).toBe(true);
   });
+
+  it("should parse cookie correctly and store only name=value", async () => {
+    const testDownloader: Downloader = {
+      id: "qbittorrent-id",
+      name: "Test qBittorrent",
+      type: "qbittorrent",
+      url: "http://localhost:8080",
+      username: "admin",
+      password: "adminadmin",
+      enabled: true,
+      priority: 1,
+      downloadPath: null,
+      category: "games",
+      settings: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Mock login response with full cookie attributes
+    const loginResponse = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers([
+        ["set-cookie", "SID=mySessionId123; path=/; HttpOnly; SameSite=Strict"],
+      ]),
+      text: async () => "Ok.",
+    };
+
+    // Mock version response
+    const versionResponse = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers(),
+      text: async () => "v4.6.2",
+    };
+
+    fetchMock.mockResolvedValueOnce(loginResponse).mockResolvedValueOnce(versionResponse);
+
+    const { DownloaderManager } = await import("../downloaders.js");
+    const result = await DownloaderManager.testDownloader(testDownloader);
+
+    expect(result.success).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // Verify the second call (version request) includes the cookie
+    const secondCallHeaders = fetchMock.mock.calls[1][1].headers;
+    expect(secondCallHeaders["Cookie"]).toBe("SID=mySessionId123");
+    // Should NOT include path, HttpOnly, or SameSite attributes
+    expect(secondCallHeaders["Cookie"]).not.toContain("path");
+    expect(secondCallHeaders["Cookie"]).not.toContain("HttpOnly");
+    expect(secondCallHeaders["Cookie"]).not.toContain("SameSite");
+  });
+
+  it("should retry once on 403 and avoid infinite recursion", async () => {
+    const testDownloader: Downloader = {
+      id: "qbittorrent-id",
+      name: "Test qBittorrent",
+      type: "qbittorrent",
+      url: "http://localhost:8080",
+      username: "admin",
+      password: "adminadmin",
+      enabled: true,
+      priority: 1,
+      downloadPath: null,
+      category: "games",
+      settings: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Mock login response
+    const loginResponse = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers([["set-cookie", "SID=abc123; path=/"]]),
+      text: async () => "Ok.",
+    };
+
+    // Mock 403 response (session expired)
+    const forbiddenResponse = {
+      ok: false,
+      status: 403,
+      statusText: "Forbidden",
+      headers: new Headers(),
+      text: async () => "Forbidden",
+    };
+
+    // Second 403 response to test that we don't retry infinitely
+    const forbiddenResponse2 = {
+      ok: false,
+      status: 403,
+      statusText: "Forbidden",
+      headers: new Headers(),
+      text: async () => "Forbidden",
+    };
+
+    // Second login response
+    const loginResponse2 = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers([["set-cookie", "SID=def456; path=/"]]),
+      text: async () => "Ok.",
+    };
+
+    fetchMock
+      .mockResolvedValueOnce(loginResponse) // Initial login
+      .mockResolvedValueOnce(forbiddenResponse) // First request fails with 403
+      .mockResolvedValueOnce(loginResponse2) // Re-login
+      .mockResolvedValueOnce(forbiddenResponse2); // Retry still fails with 403 - should NOT retry again
+
+    const { DownloaderManager } = await import("../downloaders.js");
+
+    // This should throw an error instead of retrying infinitely
+    await expect(DownloaderManager.testDownloader(testDownloader)).rejects.toThrow();
+
+    // Verify we only made 4 calls total (not infinite)
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
 });
 
 describe("Authentication - HTTP Basic Auth Encoding", () => {

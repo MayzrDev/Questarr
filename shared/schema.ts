@@ -100,6 +100,7 @@ export const downloaders = pgTable("downloaders", {
   url: text("url").notNull(), // Host URL (without port for rTorrent/qBittorrent)
   port: integer("port"), // Port number (used by rTorrent and qBittorrent)
   useSsl: boolean("use_ssl").default(false), // Use SSL/TLS connection
+  skipTlsVerify: boolean("skip_tls_verify").default(false), // Skip TLS certificate verification (opt-in for self-signed certs)
   urlPath: text("url_path"), // URL path to XMLRPC endpoint (rTorrent: typically "RPC2" or "plugins/rpc/rpc.php")
   username: text("username"),
   password: text("password"),
