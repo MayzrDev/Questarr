@@ -369,6 +369,7 @@ export class MemStorage implements IStorage {
       url: insertDownloader.url,
       port: insertDownloader.port ?? null,
       useSsl: insertDownloader.useSsl ?? false,
+      skipTlsVerify: insertDownloader.skipTlsVerify ?? false,
       urlPath: insertDownloader.urlPath ?? null,
       username: insertDownloader.username ?? null,
       password: insertDownloader.password ?? null,

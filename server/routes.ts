@@ -1111,6 +1111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         url,
         port: port || null,
         useSsl: useSsl ?? false,
+        skipTlsVerify: false, // Default to false for test connections
         urlPath: urlPath || null,
         username: username || null,
         password: password || null,
